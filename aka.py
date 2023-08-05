@@ -37,6 +37,24 @@ class aka(znc.Module):
     description = "Tracks users, allowing tracing and history viewing of nicks, hosts, and channels"
     wiki_page = "aka"
 
+    HELP_COMMANDS = (
+        ('all'        , ''                                                  , 'Get all information on a user (nick, ident, or host)'),
+        ('history'    , '<user> [--type=type]'                              , 'Show history for a user'),
+        ('users'      ,  '<#channel1> [<#channel2>] ... [<channel #>]'      , 'Show common users between a list of channel(s)'),
+        ('channels'   ,  '<user1> [<user2>] ... [<user #>] [--type=type]'   , 'Show common channels between a list of user(s) (nicks, idents, or hosts, including mixed)'),
+        ('seen'       ,  '<user> [<#channel>] [--type=type]'                , 'Display last time user was seen speaking'),
+        ('geo'        ,  '<user> [--type=type]'                             , 'Geolocates user (nick, ident, host, IP, or domain)'),
+        ('who'        ,  '<scope>'                                          , 'Update userdata on all users in the scope (#channel, network, or all)'),
+        ('process'    ,  '<scope>'                                          , 'Add all current users in the scope (#channel, network, or all) to the database'),
+        ('rawquery'   ,  '<query>'                                          , 'Run raw sqlite3 query and return results'),
+        ('import'     ,  '<network> <file>'                                 , 'Import an existing database'),
+        ('about'      , ''                                                  , 'Display information about aka'),
+        ('stats'      , ''                                                  , 'Print data stats for the current network'),
+        ('help'       , ''                                                  , 'Print help for using the module'),
+        ('NOTE'       ,  'User Types'                                       , 'Valid user types are nick, ident, and host.'),
+        ('NOTE'       ,  'Wildcard Searches'                                , '<user> supports * and ? GLOB wildcard syntax (combinable at start, middle, and end).')
+    )
+
     def OnLoad(self, args, message):
 
         self.USER = self.GetUser().GetUserName()
@@ -426,64 +444,13 @@ class aka(znc.Module):
             self.PutModule("Invalid command. See \x02help\x02 for a list of available commands.")
 
     def cmd_help(self):
-        help = znc.CTable(250)
+        help = znc.CTable()
         help.AddColumn("Command")
         help.AddColumn("Arguments")
         help.AddColumn("Description")
-        help.AddRow()
-        help.SetCell("Command", "all")
-        help.SetCell("Arguments", "<user> [--type=type] [--deep]")
-        help.SetCell("Description", "Get all information on a user (nick, ident, or host)")
-        help.AddRow()
-        help.SetCell("Command", "history")
-        help.SetCell("Arguments", "<user> [--type=type]")
-        help.SetCell("Description", "Show history for a user")
-        help.AddRow()
-        help.SetCell("Command", "users")
-        help.SetCell("Arguments", "<#channel 1> [<#channel 2>] ... [<channel #>]")
-        help.SetCell("Description", "Show common users between a list of channel(s)")
-        help.AddRow()
-        help.SetCell("Command", "channels")
-        help.SetCell("Arguments", "<user 1> [<user 2>] ... [<user #>] [--type=type]")
-        help.SetCell("Description", "Show common channels between a list of user(s) (nicks, idents, or hosts, including mixed)")
-        help.AddRow()
-        help.SetCell("Command", "seen")
-        help.SetCell("Arguments", "<user> [<#channel>] [--type=type]")
-        help.SetCell("Description", "Display last time user was seen speaking")
-        help.AddRow()
-        help.SetCell("Command", "geo")
-        help.SetCell("Arguments", "<user> [--type=type]")
-        help.SetCell("Description", "Geolocates user (nick, ident, host, IP, or domain)")
-        help.AddRow()
-        help.SetCell("Command", "who")
-        help.SetCell("Arguments", "<scope>")
-        help.SetCell("Description", "Update userdata on all users in the scope (#channel, network, or all)")
-        help.AddRow()
-        help.SetCell("Command", "process")
-        help.SetCell("Arguments", "<scope>")
-        help.SetCell("Description", "Add all current users in the scope (#channel, network, or all) to the database")
-        help.AddRow()
-        help.SetCell("Command", "rawquery")
-        help.SetCell("Arguments", "<query>")
-        help.SetCell("Description", "Run raw sqlite3 query and return results")
-        help.SetCell("Command", "import")
-        help.SetCell("Arguments", "<network> <file>")
-        help.SetCell("Description", "Import an existing database")
-        help.AddRow()
-        help.SetCell("Command", "about")
-        help.SetCell("Description", "Display information about aka")
-        help.AddRow()
-        help.SetCell("Command", "stats")
-        help.SetCell("Description", "Print data stats for the current network")
-        help.AddRow()
-        help.SetCell("Command", "help")
-        help.SetCell("Description", "Print help for using the module")
-        help.AddRow()
-        help.SetCell("Command", "NOTE")
-        help.SetCell("Arguments", "User Types")
-        help.SetCell("Description", "Valid user types are nick, ident, and host.")
-        help.SetCell("Command", "NOTE")
-        help.SetCell("Arguments", "Wildcard Searches")
-        help.SetCell("Description", "<user> supports * and ? GLOB wildcard syntax (combinable at start, middle, and end).")
-
+        for x, y, z in self.HELP_COMMANDS:
+            help.AddRow()
+            help.SetCell("Command", x)
+            help.SetCell("Arguments", y)
+            help.SetCell("Description", z)
         self.PutModule(help)
