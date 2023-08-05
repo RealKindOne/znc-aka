@@ -93,7 +93,7 @@ class aka(znc.Module):
 
     def process_seen(self, network, nick, ident, host, channel, message):
         message = str(message).replace("'","''")
-        self.cur.execute("INSERT OR REPLACE INTO users (network, nick, ident, host, channel, message, time) VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now'));", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message))
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, message, time) VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set message = EXCLUDED.message, time = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message))
         self.conn.commit()
 
     def cmd_process(self, scope):
