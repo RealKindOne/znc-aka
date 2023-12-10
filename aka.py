@@ -70,10 +70,6 @@ class aka(znc.Module):
     def OnPartMessage(self, msg):
         self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'part', msg.GetReason())
 
-    # TODO - Figure out how to store these better.
-    def OnKickMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'KICK '+ msg.GetKickedNick() + ' REASON ' + msg.GetReason())
-
     def OnQuitMessage(self, msg, vChans):
             for chan in vChans:
                 self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), 'quit', msg.GetReason())
