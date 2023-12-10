@@ -96,6 +96,11 @@ class aka(znc.Module):
     def OnPrivActionMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', '* ' + msg.GetText())
 
+    def OnPrivNoticeMessage(self, msg):
+        # Don't log server notices.
+        if (msg.GetNick().GetIdent() == ''): return
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'NOTICE', msg.GetText())
+
     def OnPrivTextMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', msg.GetText())
 
