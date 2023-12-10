@@ -48,7 +48,6 @@ class aka(znc.Module):
         ('who'        ,  '<scope>'                                          , 'Update userdata on all users in the scope (#channel, network, or all)'),
         ('process'    ,  '<scope>'                                          , 'Add all current users in the scope (#channel, network, or all) to the database'),
         ('rawquery'   ,  '<query>'                                          , 'Run raw sqlite3 query and return results'),
-        ('import'     ,  '<network> <file>'                                 , 'Import an existing database'),
         ('about'      , ''                                                  , 'Display information about aka'),
         ('stats'      , ''                                                  , 'Print data stats for the current network'),
         ('help'       , ''                                                  , 'Print help for using the module'),
@@ -435,40 +434,6 @@ class aka(znc.Module):
         except sqlite3.Error as e:
             self.PutModule('Error: %s' % e)
 
-    def cmd_import(self, network, file):
-        if os.path.exists(file):
-            self.old_conn = sqlite3.connect(file)
-            self.old_c = self.old_conn.cursor()
-            try:
-                self.old_c.execute("SELECT nick, identity, host, channel, message, processed_time, added FROM users")
-                old = True
-            except:
-                self.old_c.execute("SELECT nick, ident, host, channel, message, time FROM users")
-                old = False
-            data = self.old_c.fetchall()
-            count = 0
-            self.PutModule("Importing {}. Please be patient...".format(file))
-            if old:
-                for row in data:
-                    if row[5]:
-                        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, message, time) VALUES (LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?));", (network, row[0], row[1], row[2], row[3], row[4], str(time.mktime((datetime.datetime.strptime(row[5].partition('.')[0], '%Y-%m-%d %H:%M:%S')).timetuple())).partition('.')[0]))
-                    elif row[6]:
-                        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, message, time) VALUES (LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?);", (network, row[0], row[1], row[2], row[3], row[4], str(time.mktime((datetime.datetime.strptime(row[6].partition('.')[0], '%Y-%m-%d %H:%M:%S')).timetuple())).partition('.')[0]))
-                    else:
-                        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, message) VALUES (LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?));", (network, row[0], row[1], row[2], row[3], row[4]))
-                    count += 1
-            else:
-                for row in data:
-                    if row[5]:
-                        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, message, time) VALUES (LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?));", (network, row[0], row[1], row[2], row[3], row[4], row[5]))
-                    else:
-                        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, message) VALUES (LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?), LOWER(?));", (network, row[0], row[1], row[2], row[3], row[4]))
-                    count += 1
-            self.conn.commit()
-            self.PutModule("Database imported. {} records processed.".format(count))
-        else:
-            self.PutModule("File {} does not exist. Skipping.".format(file))
-
     def db_setup(self):
         self.conn = sqlite3.connect(self.GetSavePath() + "/aka.db")
         self.cur = self.conn.cursor()
@@ -478,7 +443,7 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["all", "history", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help", "migrate"]
+        cmds = ["all", "history", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "stats", "about", "help", "migrate"]
         if commands[0] in cmds:
             if "--type=" in line:
                 type = (line.split('=')[1]).lower()
@@ -544,14 +509,6 @@ class aka(znc.Module):
                     self.cmd_rawquery(commands[1:])
                 except:
                     self.PutModule("You must specify a query.")
-            elif commands[0] == "import":
-                self.cmd_import(commands[1], commands[2])
-                '''
-                try:
-                    self.cmd_import(commands[1], commands[2])
-                except:
-                    self.PutModule("You must specify a network and file.")
-                '''
             elif commands[0] == "stats":
                 self.cmd_stats()
             elif commands[0] == "about":
