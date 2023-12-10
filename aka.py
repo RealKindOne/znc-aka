@@ -93,6 +93,9 @@ class aka(znc.Module):
     def OnChanTextMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetText())
 
+    def OnPrivActionMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', '* ' + msg.GetText())
+
     def OnPrivTextMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', msg.GetText())
 
