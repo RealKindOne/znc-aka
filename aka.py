@@ -64,14 +64,20 @@ class aka(znc.Module):
         return True
 
     def OnJoinMessage(self, msg):
-        self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'join', msg.GetParam(1), gecos)
+        channel = str(msg.GetChan().GetName()).replace("'","''")
+        gecos   = str(msg.GetParam(2)).replace("'","''")
+        self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'join', msg.GetParam(1), gecos)
 
     def OnPartMessage(self, msg):
-        self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'part', msg.GetReason())
+        channel  = str(msg.GetChan().GetName()).replace("'","''")
+        partmsg  = str(msg.GetReason()).replace("'","''")
+        self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'part', partmsg)
 
     def OnQuitMessage(self, msg, vChans):
-            for chan in vChans:
-                self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), 'quit', msg.GetReason())
+        quitmsg  = str(msg.GetReason()).replace("'","''")
+        for chan in vChans:
+            channel = str(chan.GetName().replace("'","''"))
+            self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'quit', quitmsg)
 
     # OnUser..() events will set the 'joins' column at '1' if sent to a query. Don't need to create a seperate self.process_ ... for this.
     def OnUserTextMessage(self, msg):
@@ -97,8 +103,9 @@ class aka(znc.Module):
 
     def OnNickMessage(self, msg, vChans):
         for chan in vChans:
-            self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), msg.GetNewNick())
-            self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), msg.GetOldNick())
+            channel = str(chan.GetName().replace("'","''"))
+            self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetNewNick())
+            self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetOldNick())
 
     def OnChanActionMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg' , '* ' + msg.GetText())
@@ -177,7 +184,7 @@ class aka(znc.Module):
           nick  = msg.GetParam(5)
           ident = msg.GetParam(2)
           host  = msg.GetParam(3)
-          chan  = msg.GetParam(1)
+          chan  = str(msg.GetParam(1)).replace("'","''")
           self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
         # /cap req userhost-in-names
         # TODO - Figure out how to remove op/voice status.
@@ -194,7 +201,7 @@ class aka(znc.Module):
             nick  = msg.GetParam(6)
             ident = msg.GetParam(3)
             host  = msg.GetParam(4)
-            chan  = msg.GetParam(2)
+            chan  = str(msg.GetParam(2)).replace("'","''")
             self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
         # TODO
         # :sodium.libera.chat 396 KindOne new.vhost :is now...
