@@ -67,6 +67,10 @@ class aka(znc.Module):
     def OnJoinMessage(self, msg):
         self.process_user(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName())
 
+    # TODO - Figure out how to store these better. Currently stored like normal messages.
+    def OnPartMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetReason())
+
     def OnNick(self, user, new_nick, channels):
         for chan in channels:
             self.process_user(self.GetNetwork().GetName(), new_nick, user.GetIdent(), user.GetHost(), chan.GetName())
@@ -74,10 +78,6 @@ class aka(znc.Module):
     def OnQuit(self, user, message, channels):
         for chan in channels:
             self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'QUIT', message)
-
-    # TODO - Figure out how to store these better. Currently stored like normal messages.
-    def OnPart(self, user, channel, message):
-            self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName(), message  )
 
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
