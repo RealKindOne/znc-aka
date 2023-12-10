@@ -93,8 +93,8 @@ class aka(znc.Module):
     def OnChanTextMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetText())
 
-    def OnPrivMsg(self, user, message):
-        self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
+    def OnPrivTextMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', msg.GetText())
 
     def OnUserJoin(self, channel, key):
         self.PutIRC("WHO %s" % channel)
