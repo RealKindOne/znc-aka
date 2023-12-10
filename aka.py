@@ -405,22 +405,8 @@ class aka(znc.Module):
     def db_setup(self):
         self.conn = sqlite3.connect(self.GetSavePath() + "/aka.db")
         self.cur = self.conn.cursor()
-        self.cur.execute("create table if not exists users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, message TEXT, time INTEGER, UNIQUE(network, nick, ident, host, channel));")
+        self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
         self.conn.commit()
-
-        if 'HAS_RUN' not in self.nv:
-            nets = self.GetUser().GetNetworks()
-            for net in nets:
-                file = self.GetUser().GetUserPath() + "/networks/" + net.GetName() + "/moddata/aka/aka." + net.GetName() + ".db"
-                self.cmd_import(net.GetName(), file)
-            self.SetNV('HAS_RUN', "TRUE")
-        # Add new time column.
-        # Don't need to copy over since the seen command now uses " MAX( MAX(firstseen), MAX(lastseen)) ".
-        if 'NEW_TIME_COLUMN' not in self.nv:
-            self.cur.execute("ALTER table users ADD lastseen INTEGER;")
-            self.cur.execute("ALTER table users RENAME time to firstseen;")
-            self.SetNV('NEW_TIME_COLUMN', "TRUE")
-
 
     def OnModCommand(self, command):
         line = command.lower()
