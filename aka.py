@@ -71,15 +71,23 @@ class aka(znc.Module):
     def OnPartMessage(self, msg):
         channel  = str(msg.GetChan().GetName()).replace("'","''")
         partmsg  = str(msg.GetReason()).replace("'","''")
-        self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'part', partmsg)
+        if msg.GetTag('account'):
+            self.process_part_account(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'part', partmsg, msg.GetTag('account'))
+        else:
+            self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'part', partmsg)
 
     def OnQuitMessage(self, msg, vChans):
         quitmsg  = str(msg.GetReason()).replace("'","''")
-        for chan in vChans:
-            channel = str(chan.GetName().replace("'","''"))
-            self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'quit', quitmsg)
+        if msg.GetTag('account'):
+            for chan in vChans:
+                channel = str(chan.GetName().replace("'","''"))
+                self.process_quit_account(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'quit', quitmsg, msg.GetTag('account'))
+        else:
+            for chan in vChans:
+                channel = str(chan.GetName().replace("'","''"))
+                self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'quit', quitmsg)
 
-    # OnUser..() events will set the 'joins' column at '1' if sent to a query. Don't need to create a seperate self.process_ ... for this.
+    # OnUser..() events will set the 'joins' column at '1' if sent to a query. Don't need to create a separate self.process_ ... for this.
     def OnUserTextMessage(self, msg):
         nick  = self.GetNetwork().GetCurNick()
         ident = self.GetNetwork().GetIRCNick().GetIdent()
@@ -102,11 +110,16 @@ class aka(znc.Module):
         self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'notice', priv)
 
     def OnNickMessage(self, msg, vChans):
-        for chan in vChans:
-            channel = str(chan.GetName().replace("'","''"))
-            self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetNewNick())
-            self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetOldNick())
-
+        if msg.GetTag('account'):
+            for chan in vChans:
+                channel = str(chan.GetName().replace("'","''"))
+                self.process_nick_change_new_account(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetNewNick(), msg.GetTag('account'))
+                self.process_nick_change_old_account(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetOldNick(), msg.GetTag('account'))
+        else:
+            for chan in vChans:
+                channel = str(chan.GetName().replace("'","''"))
+                self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetNewNick())
+                self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetOldNick())
     def OnChanActionMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg' , '* ' + msg.GetText())
 
@@ -224,11 +237,25 @@ class aka(znc.Module):
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
+    def process_part_account(self, network, nick, ident, host, channel, event, message, account):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, account = EXCLUDED.account, lastseen = strftime('%s', 'now'), parts = parts + 1 ;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message, account.lower()))
+        self.conn.commit()
+
     def process_quit(self, network, nick, ident, host, channel, event, message):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
             VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), quits = quits + 1 ;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
+        self.conn.commit()
+
+    def process_quit_account(self, network, nick, ident, host, channel, event, message, account):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1', ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), account = EXCLUDED.account, quits = quits + 1 ;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message, account.lower()))
         self.conn.commit()
 
     def process_nick_change_new(self, network, nick, ident, host, channel, message):
@@ -245,11 +272,27 @@ class aka(znc.Module):
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower()))
         self.conn.commit()
 
+    def process_nick_change_new_account(self, network, nick, ident, host, channel, message, account):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, 'nick', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event, account = EXCLUDED.account;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower(), account.lower()))
+        self.conn.commit()
+
+    def process_nick_change_old_account(self, network, nick, ident, host, channel, message, account):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event, account = EXCLUDED.account;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower(), account.lower()))
+        self.conn.commit()
+
     # Channel messages and notices:
     # Private messages and notices:
     # NOTES:
     # A query will get a '1' in the joins column. Don't bother creating a second process_message for query windows.
     def process_message(self, network, nick, ident, host, channel, event, message):
+        channel = str(channel).replace("'","''")
+        message = str(message).replace("'","''")
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
             VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), texts = texts + 1;", \
