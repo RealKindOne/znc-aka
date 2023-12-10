@@ -65,7 +65,6 @@ class aka(znc.Module):
         return True
 
     def OnJoinMessage(self, msg):
-        self.process_user(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName())
         self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'join', msg.GetParam(1), gecos)
 
     def OnPartMessage(self, msg):
