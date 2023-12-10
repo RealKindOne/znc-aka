@@ -74,6 +74,9 @@ class aka(znc.Module):
         for chan in channels:
             self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'QUIT', message)
 
+    def OnPart(self, user, channel, message):
+            self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName(), message  )
+
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
 
