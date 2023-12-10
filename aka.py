@@ -76,9 +76,9 @@ class aka(znc.Module):
     def OnQuitMessage(self, msg, vChans):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'QUIT', msg.GetReason())
 
-    def OnNick(self, user, new_nick, channels):
-        for chan in channels:
-            self.process_user(self.GetNetwork().GetName(), new_nick, user.GetIdent(), user.GetHost(), chan.GetName())
+    def OnNickMessage(self, msg, vChans):
+        for chan in vChans:
+            self.process_user(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName())
 
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
