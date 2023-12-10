@@ -125,6 +125,51 @@ class aka(znc.Module):
         self.PutIRC("WHO %s" % channel)
 
     def OnNumericMessage(self, msg):
+
+        #                      0      1        2      3       4  5
+        # :do.foobar.com 311 KindOne KindOne ~ident 10.10.1.2 * :...
+        if (msg.GetCode() == 311):
+            global whois_nick
+            global whois_ident
+            global whois_host
+            global whois_gecos
+            global whois_account
+            # User might not be logged in. '0' the account name.
+            whois_account = '0'
+            whois_nick  = msg.GetParam(1)
+            whois_ident = msg.GetParam(2)
+            whois_host  = msg.GetParam(3)
+            whois_gecos = str(msg.GetParam(5)).replace("'","''")
+
+        if (msg.GetCode() == 314):
+            global whowas_nick
+            global whowas_ident
+            global whowas_host
+            global whowas_gecos
+            global whowas_account
+            # User might not be logged in. '0' the account name.
+            whowas_account = '0'
+            whowas_nick  = msg.GetParam(1)
+            whowas_ident = msg.GetParam(2)
+            whowas_host  = msg.GetParam(3)
+            whowas_gecos = str(msg.GetParam(5)).replace("'","''")
+            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
+
+        # End of /whois
+        # :do.foobar.com 318 KindOne KindOne :End of /WHOIS list.
+        if (msg.GetCode() == 318):
+            self.process_whois(self.GetNetwork().GetName(), whois_nick, whois_ident, whois_host, whois_account, whois_gecos)
+
+        # End of /whowas
+        if (msg.GetCode() == 369):
+            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
+
+        # Account
+        # :do.foobar.com 330 KindOne KindOne kindone :is logged in as
+        if (msg.GetCode() == 330):
+            whois_account  = msg.GetParam(2)
+            whowas_account = msg.GetParam(2)
+
         # /who #channel
         #                            0       1      2               3          4               5
         # :sodium.libera.chat 352 KindOne #channel ident some.fake.host.com sodium.libera.chat NICK H*@ :0 ...
@@ -206,6 +251,22 @@ class aka(znc.Module):
 
     def process_user(self, network, nick, ident, host, channel):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, firstseen, lastseen) VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set lastseen = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower()))
+        self.conn.commit()
+
+    def process_whois(self, network, whois_nick, whois_ident, whois_host, whois_account, whois_gecos):
+        gecos = str(whois_gecos).replace("'","''")
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, '/whois', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set account = EXCLUDED.account ,gecos = EXCLUDED.gecos, lastseen = strftime('%s', 'now');", \
+            (network.lower(), whois_nick.lower(), whois_ident.lower(), whois_host.lower(), whois_account.lower(), whois_gecos.lower()))
+        self.conn.commit()
+
+    def process_whowas(self, network, whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos):
+        gecos = str(whowas_gecos).replace("'","''")
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, '/whowas', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set account = EXCLUDED.account ,gecos = EXCLUDED.gecos;", \
+            (network.lower(), whowas_nick.lower(), whowas_ident.lower(), whowas_host.lower(), whowas_account.lower(), whowas_gecos.lower()))
         self.conn.commit()
 
     def process_seen(self, network, nick, ident, host, channel, message):
