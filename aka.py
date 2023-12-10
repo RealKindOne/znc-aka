@@ -78,6 +78,28 @@ class aka(znc.Module):
             for chan in vChans:
                 self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), 'quit', msg.GetReason())
 
+    # OnUser..() events will set the 'joins' column at '1' if sent to a query. Don't need to create a seperate self.process_ ... for this.
+    def OnUserTextMessage(self, msg):
+        nick  = self.GetNetwork().GetCurNick()
+        ident = self.GetNetwork().GetIRCNick().GetIdent()
+        host  = self.GetNetwork().GetIRCNick().GetHost()
+        priv  = msg.GetParam(1)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'privmsg', priv)
+
+    def OnUserActionMessage(self, msg):
+        nick  = self.GetNetwork().GetCurNick()
+        ident = self.GetNetwork().GetIRCNick().GetIdent()
+        host  = self.GetNetwork().GetIRCNick().GetHost()
+        priv  = msg.GetParam(1)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'privmsg', '* ' + priv)
+
+    def OnUserNoticeMessage(self, msg):
+        nick  = self.GetNetwork().GetCurNick()
+        ident = self.GetNetwork().GetIRCNick().GetIdent()
+        host  = self.GetNetwork().GetIRCNick().GetHost()
+        priv  = msg.GetParam(1)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'notice', priv)
+
     def OnNickMessage(self, msg, vChans):
         for chan in vChans:
             self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), msg.GetNewNick())
