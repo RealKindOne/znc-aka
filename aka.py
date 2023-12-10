@@ -84,24 +84,25 @@ class aka(znc.Module):
             self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), msg.GetOldNick())
 
     def OnChanActionMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), '* ' + msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg' , '* ' + msg.GetText())
 
     def OnChanNoticeMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'notice', msg.GetText())
 
     def OnChanTextMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg', msg.GetText())
 
+    # Assume everything is PRIVMSG
     def OnPrivActionMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', '* ' + msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'query', 'privmsg', '* ' + msg.GetText())
 
     def OnPrivNoticeMessage(self, msg):
         # Don't log server notices.
         if (msg.GetNick().GetIdent() == ''): return
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'NOTICE', msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'query', 'notice', msg.GetText())
 
     def OnPrivTextMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'PRIVMSG', msg.GetText())
+        self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'query', 'privmsg', msg.GetText())
 
     def OnUserJoin(self, channel, key):
         self.PutIRC("WHO %s" % channel)
@@ -173,6 +174,17 @@ class aka(znc.Module):
             VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower()))
+        self.conn.commit()
+
+    # Channel messages and notices:
+    # Private messages and notices:
+    # NOTES:
+    # A query will get a '1' in the joins column. Don't bother creating a second process_message for query windows.
+    def process_message(self, network, nick, ident, host, channel, event, message):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), texts = texts + 1;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
     def process_user(self, network, nick, ident, host, channel):
