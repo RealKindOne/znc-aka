@@ -87,6 +87,9 @@ class aka(znc.Module):
     def OnChanActionMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), '* ' + msg.GetText())
 
+    def OnChanNoticeMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetText())
+
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
 
