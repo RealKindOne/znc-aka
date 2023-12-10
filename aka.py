@@ -71,6 +71,10 @@ class aka(znc.Module):
     def OnPartMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetReason())
 
+    # TODO - Figure out how to store these better.
+    def OnKickMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'KICK '+ msg.GetKickedNick() + ' REASON ' + msg.GetReason())
+
     # Quit gets own single event - Don't overwrite other events for all common channels.
     # TODO - Update lastseen column for all channels when they quit. Use "strftime() + 1 second" for the QUIT event just so it shows up the in the seen?
     def OnQuitMessage(self, msg, vChans):
