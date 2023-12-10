@@ -68,9 +68,8 @@ class aka(znc.Module):
         self.process_user(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName())
         self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'join', msg.GetParam(1), gecos)
 
-    # TODO - Figure out how to store these better. Currently stored like normal messages.
     def OnPartMessage(self, msg):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetReason())
+        self.process_part(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'part', msg.GetReason())
 
     # TODO - Figure out how to store these better.
     def OnKickMessage(self, msg):
@@ -147,6 +146,13 @@ class aka(znc.Module):
             VALUES (?, ?, ?, ?, ?, ?, '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = '', event = EXCLUDED.event, lastseen = strftime('%s', 'now'), joins = joins + 1, account = EXCLUDED.account, gecos = EXCLUDED.gecos;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, account.lower(), gecos.lower()))
+        self.conn.commit()
+
+    def process_part(self, network, nick, ident, host, channel, event, message):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0') ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), parts = parts + 1 ;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
     def process_quit(self, network, nick, ident, host, channel, event, message):
