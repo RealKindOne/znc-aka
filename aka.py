@@ -76,10 +76,9 @@ class aka(znc.Module):
     def OnKickMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'KICK '+ msg.GetKickedNick() + ' REASON ' + msg.GetReason())
 
-    # Quit gets own single event - Don't overwrite other events for all common channels.
-    # TODO - Update lastseen column for all channels when they quit. Use "strftime() + 1 second" for the QUIT event just so it shows up the in the seen?
     def OnQuitMessage(self, msg, vChans):
-        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'QUIT', msg.GetReason())
+            for chan in vChans:
+                self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName(), 'quit', msg.GetReason())
 
     def OnNickMessage(self, msg, vChans):
         for chan in vChans:
@@ -147,6 +146,13 @@ class aka(znc.Module):
             VALUES (?, ?, ?, ?, ?, ?, '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = '', event = EXCLUDED.event, lastseen = strftime('%s', 'now'), joins = joins + 1, account = EXCLUDED.account, gecos = EXCLUDED.gecos;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, account.lower(), gecos.lower()))
+        self.conn.commit()
+
+    def process_quit(self, network, nick, ident, host, channel, event, message):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1') ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), quits = quits + 1 ;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
     def process_user(self, network, nick, ident, host, channel):
