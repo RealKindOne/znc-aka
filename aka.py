@@ -84,14 +84,13 @@ class aka(znc.Module):
         for chan in vChans:
             self.process_user(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), chan.GetName())
 
+    def OnChanActionMessage(self, msg):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), '* ' + msg.GetText())
+
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
 
     def OnChanMsg(self, user, channel, message):
-        self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName(), message)
-
-    def OnChanAction(self, user, channel, message):
-        message = "* " + str(message).replace("'","''")
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName(), message)
 
     def OnUserJoin(self, channel, key):
