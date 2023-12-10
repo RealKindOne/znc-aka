@@ -64,8 +64,8 @@ class aka(znc.Module):
 
         return True
 
-    def OnJoin(self, user, channel):
-        self.process_user(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName())
+    def OnJoinMessage(self, msg):
+        self.process_user(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName())
 
     def OnNick(self, user, new_nick, channels):
         for chan in channels:
