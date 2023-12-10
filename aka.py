@@ -66,6 +66,7 @@ class aka(znc.Module):
 
     def OnJoinMessage(self, msg):
         self.process_user(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName())
+        self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'join', msg.GetParam(1), gecos)
 
     # TODO - Figure out how to store these better. Currently stored like normal messages.
     def OnPartMessage(self, msg):
@@ -140,6 +141,13 @@ class aka(znc.Module):
         #    nick  = msg.GetParam(0)
         #    host  = msg.GetParam(1)
 
+
+    def process_join(self, network, nick, ident, host, channel, event, account, gecos):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, ?, ?, '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set message = '', event = EXCLUDED.event, lastseen = strftime('%s', 'now'), joins = joins + 1, account = EXCLUDED.account, gecos = EXCLUDED.gecos;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, account.lower(), gecos.lower()))
+        self.conn.commit()
 
     def process_user(self, network, nick, ident, host, channel):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, firstseen, lastseen) VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set lastseen = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower()))
