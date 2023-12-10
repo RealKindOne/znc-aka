@@ -1,5 +1,6 @@
 #  znc-aka: A ZNC module to track users
 #  Copyright (C) 2016 Evan Magaliff
+#  Copyright (C) 2023 KindOne
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,13 +17,13 @@
 #  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#  Authors: Evan (MuffinMedic), Aww (AwwCookies)                          #
-#  Contributors: See CHANGELOG for specific contributions by users        #
+#  Original Authors: Evan (MuffinMedic), Aww (AwwCookies)                 #
+#  Modifications: KindOne                                                                       #
 #  Desc: A ZNC module to track users                                      #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-version = '2.0.4b'
-updated = "December 28, 2016"
+version = '2.2.0'
+updated = "Aug 7, 2023"
 
 import znc
 import os
@@ -74,6 +75,7 @@ class aka(znc.Module):
         for chan in channels:
             self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'QUIT', message)
 
+    # TODO - Figure out how to store these better. Currently stored like normal messages.
     def OnPart(self, user, channel, message):
             self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), channel.GetName(), message  )
 
@@ -101,7 +103,7 @@ class aka(znc.Module):
           chan  = msg.GetParam(1)
           self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
         # /cap req userhost-in-names
-        # TODO Figure out how to remove op/voice status.
+        # TODO - Figure out how to remove op/voice status.
         #elif (msg.GetCode() == 353):
         #  if (msg.GetParam(1) == '='):
         #    self.PutModule(msg.GetParam(3))
@@ -117,14 +119,20 @@ class aka(znc.Module):
             host  = msg.GetParam(4)
             chan  = msg.GetParam(2)
             self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
+        # TODO
+        # :sodium.libera.chat 396 KindOne new.vhost :is now...
+        #elif (msg.GetCode() == 396):
+        #    nick  = msg.GetParam(0)
+        #    host  = msg.GetParam(1)
+
 
     def process_user(self, network, nick, ident, host, channel):
-        self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, time) VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'));", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower()))
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, firstseen, lastseen) VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set lastseen = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower()))
         self.conn.commit()
 
     def process_seen(self, network, nick, ident, host, channel, message):
         message = str(message).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, message, time) VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set message = EXCLUDED.message, time = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message))
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, message, firstseen, lastseen) VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message))
         self.conn.commit()
 
     def cmd_process(self, scope):
@@ -194,9 +202,9 @@ class aka(znc.Module):
     def cmd_seen(self, type, user, channel):
         user_query = self.generate_user_query(type, user)
         if channel:
-            self.cur.execute("SELECT nick, ident, host, channel, message, MAX(time) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND channel = '{1}' AND ({2});".format(self.GetNetwork().GetName().lower(), channel.lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
+            self.cur.execute("SELECT nick, ident, host, channel, message, MAX(MAX(firstseen), MAX(lastseen)) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND channel = '{1}' AND ({2});".format(self.GetNetwork().GetName().lower(), channel.lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
         else:
-            self.cur.execute("SELECT nick, ident, host, channel, message, MAX(time) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
+            self.cur.execute("SELECT nick, ident, host, channel, message, MAX(MAX(firstseen), MAX(lastseen)) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
         data = self.cur.fetchone()
         try:
             self.PutModule("\x02{}\x02 ({}@{}) was last seen in \x02{}\x02 at \x02{}\x02 saying \"\x02{}\x02\".".format(data[0], data[1], data[2],data[3], datetime.datetime.fromtimestamp(int(data[5])).strftime('%Y-%m-%d %H:%M:%S'), data[4]))
@@ -391,6 +399,13 @@ class aka(znc.Module):
                 file = self.GetUser().GetUserPath() + "/networks/" + net.GetName() + "/moddata/aka/aka." + net.GetName() + ".db"
                 self.cmd_import(net.GetName(), file)
             self.SetNV('HAS_RUN', "TRUE")
+        # Add new time column.
+        # Don't need to copy over since the seen command now uses " MAX( MAX(firstseen), MAX(lastseen)) ".
+        if 'NEW_TIME_COLUMN' not in self.nv:
+            self.cur.execute("ALTER table users ADD lastseen INTEGER;")
+            self.cur.execute("ALTER table users RENAME time to firstseen;")
+            self.SetNV('NEW_TIME_COLUMN', "TRUE")
+
 
     def OnModCommand(self, command):
         line = command.lower()
