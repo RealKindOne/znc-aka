@@ -90,6 +90,34 @@ class aka(znc.Module):
     def OnUserJoin(self, channel, key):
         self.PutIRC("WHO %s" % channel)
 
+    def OnNumericMessage(self, msg):
+        # /who #channel
+        #                            0       1      2               3          4               5
+        # :sodium.libera.chat 352 KindOne #channel ident some.fake.host.com sodium.libera.chat NICK H*@ :0 ...
+        if (msg.GetCode() == 352):
+          nick  = msg.GetParam(5)
+          ident = msg.GetParam(2)
+          host  = msg.GetParam(3)
+          chan  = msg.GetParam(1)
+          self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
+        # /cap req userhost-in-names
+        # TODO Figure out how to remove op/voice status.
+        #elif (msg.GetCode() == 353):
+        #  if (msg.GetParam(1) == '='):
+        #    self.PutModule(msg.GetParam(3))
+
+        # mIRC /ialfill #channel
+        # WHO #channel %acdfhlnrstu,995
+        #                           0     1     2        3          4                  5           6
+        # :sodium.libera.chat 354 KindOne 995 #channel ident some.fake.host.com sodium.libera.chat NICK H 0 2867 ACCOUNT :GECOS
+        elif (msg.GetCode() == 354):
+          if (msg.GetParam(1) == '995'):
+            nick  = msg.GetParam(6)
+            ident = msg.GetParam(3)
+            host  = msg.GetParam(4)
+            chan  = msg.GetParam(2)
+            self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
+
     def process_user(self, network, nick, ident, host, channel):
         self.cur.execute("INSERT OR IGNORE INTO users (network, nick, ident, host, channel, time) VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'));", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower()))
         self.conn.commit()
