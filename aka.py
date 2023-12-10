@@ -71,13 +71,14 @@ class aka(znc.Module):
     def OnPartMessage(self, msg):
         self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), msg.GetReason())
 
+    # Quit gets own single event - Don't overwrite other events for all common channels.
+    # TODO - Update lastseen column for all channels when they quit. Use "strftime() + 1 second" for the QUIT event just so it shows up the in the seen?
+    def OnQuitMessage(self, msg, vChans):
+        self.process_seen(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'QUIT', msg.GetReason())
+
     def OnNick(self, user, new_nick, channels):
         for chan in channels:
             self.process_user(self.GetNetwork().GetName(), new_nick, user.GetIdent(), user.GetHost(), chan.GetName())
-
-    def OnQuit(self, user, message, channels):
-        for chan in channels:
-            self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'QUIT', message)
 
     def OnPrivMsg(self, user, message):
         self.process_seen(self.GetNetwork().GetName(), user.GetNick(), user.GetIdent(), user.GetHost(), 'PRIVMSG', message)
