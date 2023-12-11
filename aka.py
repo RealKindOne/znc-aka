@@ -319,11 +319,6 @@ class aka(znc.Module):
             (network.lower(), whowas_nick.lower(), whowas_ident.lower(), whowas_host.lower(), whowas_account.lower(), whowas_gecos.lower()))
         self.conn.commit()
 
-    def process_seen(self, network, nick, ident, host, channel, message):
-        message = str(message).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, message, firstseen, lastseen) VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')) ON CONFLICT(network,nick,ident,host,channel) DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now') ;", (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message))
-        self.conn.commit()
-
     def cmd_process(self, scope):
         self.PutModule("Processing {}.".format(scope))
         if scope == 'all':
