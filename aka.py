@@ -198,7 +198,8 @@ class aka(znc.Module):
           ident = msg.GetParam(2)
           host  = msg.GetParam(3)
           chan  = str(msg.GetParam(1)).replace("'","''")
-          self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
+          gecos = str(msg.GetParam(7)).replace("'","''")
+          self.process_user_who(self.GetNetwork().GetName(), nick, ident, host, chan, gecos)
         # /cap req userhost-in-names
         # TODO - Figure out how to remove op/voice status.
         #elif (msg.GetCode() == 353):
@@ -215,13 +216,30 @@ class aka(znc.Module):
             ident = msg.GetParam(3)
             host  = msg.GetParam(4)
             chan  = str(msg.GetParam(2)).replace("'","''")
-            self.process_user(self.GetNetwork().GetName(), nick, ident, host, chan)
-        # TODO
-        # :sodium.libera.chat 396 KindOne new.vhost :is now...
+            account  = msg.GetParam(10)
+            gecos = str(msg.GetParam(11)).replace("'","''")
+            self.process_user_mirc_who(self.GetNetwork().GetName(), nick, ident, host, chan, account, gecos)
         #elif (msg.GetCode() == 396):
         #    nick  = msg.GetParam(0)
         #    host  = msg.GetParam(1)
+    def process_user_who(self, network, nick, ident, host, channel, gecos):
+        gecos = str(gecos).replace("'","''")
+        channel = str(channel).replace("'","''")
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, gecos) \
+            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set gecos = EXCLUDED.gecos, lastseen = strftime('%s', 'now');", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), gecos.lower()))
+        self.conn.commit()
 
+    def process_user_mirc_who(self, network, nick, ident, host, channel, account, gecos):
+        gecos = str(gecos).replace("'","''")
+        channel = str(channel).replace("'","''")
+        #           n  n  i  h  c   event   t      first                  last             text     j    p   q    a  g
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set gecos = EXCLUDED.gecos, account = EXCLUDED.account, lastseen = strftime('%s', 'now');", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), account.lower(), gecos.lower()))
+        self.conn.commit()
 
     def process_join(self, network, nick, ident, host, channel, event, account, gecos):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
