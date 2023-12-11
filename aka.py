@@ -202,7 +202,7 @@ class aka(znc.Module):
           self.process_user_who(self.GetNetwork().GetName(), nick, ident, host, chan, gecos)
         # /cap req userhost-in-names
         # TODO - Figure out how to remove op/voice status.
-        #elif (msg.GetCode() == 353):
+        #if (msg.GetCode() == 353):
         #  if (msg.GetParam(1) == '='):
         #    self.PutModule(msg.GetParam(3))
 
@@ -210,7 +210,7 @@ class aka(znc.Module):
         # WHO #channel %acdfhlnrstu,995
         #                           0     1     2        3          4                  5           6
         # :sodium.libera.chat 354 KindOne 995 #channel ident some.fake.host.com sodium.libera.chat NICK H 0 2867 ACCOUNT :GECOS
-        elif (msg.GetCode() == 354):
+        if (msg.GetCode() == 354):
           if (msg.GetParam(1) == '995'):
             nick  = msg.GetParam(6)
             ident = msg.GetParam(3)
@@ -219,9 +219,22 @@ class aka(znc.Module):
             account  = msg.GetParam(10)
             gecos = str(msg.GetParam(11)).replace("'","''")
             self.process_user_mirc_who(self.GetNetwork().GetName(), nick, ident, host, chan, account, gecos)
-        #elif (msg.GetCode() == 396):
-        #    nick  = msg.GetParam(0)
-        #    host  = msg.GetParam(1)
+
+
+        # TODO - Deal with accountname.
+        # TODO - Deal with QUIT event.
+        #                           0       1       2
+        # :sodium.libera.chat 396 KindOne new.vhost :is now...
+        if (msg.GetCode() == 396):
+
+            nick  = msg.GetParam(0)
+            ident = self.GetNetwork().GetIRCNick().GetIdent()
+            host  = msg.GetParam(1)
+            gecos = self.GetNetwork().GetRealName()
+            account = '0'
+            for channel in self.GetNetwork().GetChans():
+                self.process_chan_join(self.GetNetwork().GetName(), nick, ident, host, channel.GetName(), 'join', account, gecos)
+
     def process_user_who(self, network, nick, ident, host, channel, gecos):
         gecos = str(gecos).replace("'","''")
         channel = str(channel).replace("'","''")
