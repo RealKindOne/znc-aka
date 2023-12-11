@@ -574,8 +574,18 @@ class aka(znc.Module):
     def db_setup(self):
         self.conn = sqlite3.connect(self.GetSavePath() + "/aka.db")
         self.cur = self.conn.cursor()
+        self.cur.execute("PRAGMA auto_vacuum=2;")
         self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
+
+        self.cur.execute("CREATE INDEX IF NOT EXISTS networks ON users (network ASC);")
+        self.cur.execute("CREATE INDEX IF NOT EXISTS nicks ON users (nick ASC);")
+
+        # Update any existing query events that are not set at '0'.
+        # self.cur.execute("UPDATE users SET joins = '0' WHERE channel = 'query' and joins = '1';")
         self.conn.commit()
+
+        # Maybe support this in a setting?
+        #self.cur.execute("VACUUM;")
 
     def OnModCommand(self, command):
         line = command.lower()
