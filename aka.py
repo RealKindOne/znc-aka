@@ -180,15 +180,15 @@ class aka(znc.Module):
         if (msg.GetCode() == 318):
             self.process_whois(self.GetNetwork().GetName(), whois_nick, whois_ident, whois_host, whois_account, whois_gecos)
 
-        # End of /whowas
-        if (msg.GetCode() == 369):
-            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
-
         # Account
         # :do.foobar.com 330 KindOne KindOne kindone :is logged in as
         if (msg.GetCode() == 330):
             whois_account  = msg.GetParam(2)
             whowas_account = msg.GetParam(2)
+
+        # End of /whowas
+        if (msg.GetCode() == 369):
+            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
 
         # /who #channel
         #                            0       1      2               3          4               5
