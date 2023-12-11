@@ -127,6 +127,7 @@ class aka(znc.Module):
                 channel = str(chan.GetName().replace("'","''"))
                 self.process_nick_change_new(self.GetNetwork().GetName(), msg.GetOldNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetNewNick())
                 self.process_nick_change_old(self.GetNetwork().GetName(), msg.GetNewNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetOldNick())
+
     def OnChanActionMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg' , '* ' + msg.GetText())
 
