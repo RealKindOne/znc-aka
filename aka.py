@@ -18,12 +18,19 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  Original Authors: Evan (MuffinMedic), Aww (AwwCookies)                 #
-#  Modifications: KindOne                                                                       #
+#  New modifications: (irc.libera.chat KindOne) (GitHub: RealKindOne)     #
 #  Desc: A ZNC module to track users                                      #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-version = '2.2.0'
-updated = "Aug 7, 2023"
+
+# WARNING:
+# The database format has been extensively modified.
+# If you are updating from a 2.0.x versions you must
+# run the SQLite commands in the README.md file before
+# you load this module.
+
+version = '3.0.0'
+updated = "Dec 10, 2023"
 
 import znc
 import os
@@ -36,7 +43,7 @@ import requests
 class aka(znc.Module):
     module_types = [znc.CModInfo.UserModule]
     description = "Tracks users, allowing tracing and history viewing of nicks, hosts, and channels"
-    wiki_page = "aka"
+    #wiki_page = "aka"
 
     HELP_COMMANDS = (
         ('all'        , ''                                                  , 'Get all information on a user (nick, ident, or host)'),
@@ -549,12 +556,12 @@ class aka(znc.Module):
         self.PutModule("{} WHO updates triggered. Please wait several minutes for ZNC to receive the updated data from the IRC server(s) and then run \x02process\x02 to add these updates to the database".format(scope))
 
     def cmd_about(self):
-        self.PutModule("\x02aka\x02 (Also Known As / nickhistory) ZNC module by MuffinMedic (Evan)")
+        self.PutModule("\x02aka")
         self.PutModule("\x02Description:\x02 {}".format(self.description))
         self.PutModule("\x02Version:\x02 {}".format(version))
         self.PutModule("\x02Updated:\x02 {}".format(updated))
-        self.PutModule("\x02Documenation:\x02 http://wiki.znc.in/Aka")
-        self.PutModule("\x02Source:\x02 https://github.com/MuffinMedic/znc-aka")
+        #self.PutModule("\x02Documenation:\x02 http://wiki.znc.in/Aka")
+        self.PutModule("\x02Source:\x02 https://github.com/RealKindOne/znc-aka")
 
     def cmd_rawquery(self, query):
         try:
