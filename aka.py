@@ -40,6 +40,11 @@ import re
 import sqlite3
 import requests
 
+DEFAULT_CONFIG = {
+    "RECORD_WHOIS":   True,   # Record /whois output.
+    "RECORD_WHOWAS":  True,   # Record /whowas output.
+    "WHO_ON_JOIN":    True   # Send a /who #channel when you join a channel on your client.
+}
 class aka(znc.Module):
     module_types = [znc.CModInfo.UserModule]
     description = "Tracks users, allowing tracing and history viewing of nicks, hosts, and channels"
@@ -48,26 +53,26 @@ class aka(znc.Module):
     HELP_COMMANDS = (
         ('all'        , ''                                                  , 'Get all information on a user (nick, ident, or host)'),
         ('history'    , '<user> [--type=type]'                              , 'Show history for a user'),
-        ('users'      ,  '<#channel1> [<#channel2>] ... [<channel #>]'      , 'Show common users between a list of channel(s)'),
-        ('channels'   ,  '<user1> [<user2>] ... [<user #>] [--type=type]'   , 'Show common channels between a list of user(s) (nicks, idents, or hosts, including mixed)'),
-        ('seen'       ,  '<user> [<#channel>] [--type=type]'                , 'Display last time user was seen speaking'),
-        ('geo'        ,  '<user> [--type=type]'                             , 'Geolocates user (nick, ident, host, IP, or domain)'),
-        ('who'        ,  '<scope>'                                          , 'Update userdata on all users in the scope (#channel, network, or all)'),
-        ('process'    ,  '<scope>'                                          , 'Add all current users in the scope (#channel, network, or all) to the database'),
-        ('rawquery'   ,  '<query>'                                          , 'Run raw sqlite3 query and return results'),
+        ('users'      , '<#channel1> [<#channel2>] ... [<channel #>]'       , 'Show common users between a list of channel(s)'),
+        ('channels'   , '<user1> [<user2>] ... [<user #>] [--type=type]'    , 'Show common channels between a list of user(s) (nicks, idents, or hosts, including mixed)'),
+        ('seen'       , '<user> [<#channel>] [--type=type]'                 , 'Display last time user was seen speaking'),
+        ('geo'        , '<user> [--type=type]'                              , 'Geolocates user (nick, ident, host, IP, or domain)'),
+        ('who'        , '<scope>'                                           , 'Update userdata on all users in the scope (#channel, network, or all)'),
+        ('process'    , '<scope>'                                           , 'Add all current users in the scope (#channel, network, or all) to the database'),
+        ('rawquery'   , '<query>'                                           , 'Run raw sqlite3 query and return results'),
         ('about'      , ''                                                  , 'Display information about aka'),
         ('stats'      , ''                                                  , 'Print data stats for the current network'),
+        ('config'     , '<variable> <value>'                                , 'Set configuration variables.')
+        ('getconfig'  , ''                                                  , 'Print the current configuration.')
         ('help'       , ''                                                  , 'Print help for using the module'),
         ('NOTE'       ,  'User Types'                                       , 'Valid user types are nick, ident, and host.'),
         ('NOTE'       ,  'Wildcard Searches'                                , '<user> supports * and ? GLOB wildcard syntax (combinable at start, middle, and end).')
     )
 
     def OnLoad(self, args, message):
-
         self.USER = self.GetUser().GetUserName()
-
         self.db_setup()
-
+        self.configure()
         return True
 
     def OnJoinMessage(self, msg):
@@ -149,8 +154,9 @@ class aka(znc.Module):
     def OnPrivTextMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'query', 'privmsg', msg.GetText())
 
-    def OnUserJoin(self, channel, key):
-        self.PutIRC("WHO %s" % channel)
+    def OnUserJoinMessage(self, msg):
+        if self.nv['WHO_ON_JOIN'] == "TRUE":
+            self.PutIRC("WHO %s" % msg.GetTarget())
 
     def OnNumericMessage(self, msg):
 
@@ -181,12 +187,14 @@ class aka(znc.Module):
             whowas_ident = msg.GetParam(2)
             whowas_host  = msg.GetParam(3)
             whowas_gecos = str(msg.GetParam(5)).replace("'","''")
-            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
+            if self.nv['RECORD_WHOWAS'] == "TRUE":
+                self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
 
         # End of /whois
         # :do.foobar.com 318 KindOne KindOne :End of /WHOIS list.
         if (msg.GetCode() == 318):
-            self.process_whois(self.GetNetwork().GetName(), whois_nick, whois_ident, whois_host, whois_account, whois_gecos)
+            if self.nv['RECORD_WHOIS'] == "TRUE":
+                self.process_whois(self.GetNetwork().GetName(), whois_nick, whois_ident, whois_host, whois_account, whois_gecos)
 
         # Account
         # :do.foobar.com 330 KindOne KindOne kindone :is logged in as
@@ -196,7 +204,8 @@ class aka(znc.Module):
 
         # End of /whowas
         if (msg.GetCode() == 369):
-            self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
+            if self.nv['RECORD_WHOWAS'] == "TRUE":
+                self.process_whowas(self.GetNetwork().GetName(), whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos)
 
         # /who #channel
         #                            0       1      2               3          4               5
@@ -579,6 +588,39 @@ class aka(znc.Module):
         except sqlite3.Error as e:
             self.PutModule('Error: %s' % e)
 
+    def cmd_getconfig(self):
+        for key, value in self.nv.items():
+            self.PutModule("%s = %s" % (key, value))
+
+    def cmd_config(self, var_name, value):
+        valid = True
+        bools = ["WHO_ON_JOIN", "RECORD_WHOIS", "RECORD_WHOWAS"]
+        if var_name.upper() in bools:
+            if not str(value).upper() == "TRUE" and not str(value).upper() == "FALSE":
+                valid = False
+                self.PutModule("%s must be either True or False" % var_name)
+        else:
+            valid = False
+            self.PutModule("%s is not a valid setting." % var_name)
+
+        if valid:
+            self.SetNV(str(var_name).upper(), str(value).upper(), True)
+            self.PutModule("%s => %s" % (var_name.upper(), value.upper()))
+
+    def configure(self):
+
+        if not os.path.exists(self.GetSavePath() + "/.registry"):
+            for setting in DEFAULT_CONFIG:
+                self.SetNV(setting.upper(), str(DEFAULT_CONFIG[setting]).upper(), True)
+
+        if os.path.exists(self.GetSavePath() + "/.registry"):
+            for setting in DEFAULT_CONFIG:
+                if setting not in self.nv:
+                    self.SetNV(setting.upper(), str(DEFAULT_CONFIG[setting]).upper(), True)
+            for setting in self.nv:
+                if self.nv[setting] != self.nv[setting].upper():
+                    self.SetNV(setting.upper(), self.nv[setting].upper(), True)
+
     def db_setup(self):
         self.conn = sqlite3.connect(self.GetSavePath() + "/aka.db")
         self.cur = self.conn.cursor()
@@ -598,7 +640,8 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["all", "history", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "stats", "about", "help", "migrate"]
+        cmds = ["all", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help", "migrate"]
+
         if commands[0] in cmds:
             if "--type=" in line:
                 type = (line.split('=')[1]).lower()
@@ -666,6 +709,11 @@ class aka(znc.Module):
                     self.PutModule("You must specify a query.")
             elif commands[0] == "stats":
                 self.cmd_stats()
+            elif command.split()[0] == "config":
+                self.cmd_config(command.split()[1], command.split()[2])
+            elif command.split()[0] == "getconfig":
+                self.cmd_getconfig()
+
             elif commands[0] == "about":
                 self.cmd_about()
             elif commands[0] == "help":
