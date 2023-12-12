@@ -18,6 +18,7 @@ This will increase your database size about a little over 3x in size (2x for the
     ALTER TABLE users_temp RENAME TO users;
     UPDATE users SET event = '0', texts = '0', joins = '0', parts = '0', quits = '0', account = '0', gecos = '0';
 
+NOTE: Users `firstseen` and `lastseen` will be the same so you will not know the actual `firstseen` on all existing users.
 
 If everything was successful you can delete the old database and use the VACUUM command for recovering free space.
 
