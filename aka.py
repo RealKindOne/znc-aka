@@ -43,7 +43,8 @@ import requests
 DEFAULT_CONFIG = {
     "RECORD_WHOIS":   True,   # Record /whois output.
     "RECORD_WHOWAS":  True,   # Record /whowas output.
-    "WHO_ON_JOIN":    True   # Send a /who #channel when you join a channel on your client.
+    "WHO_ON_JOIN":    True,   # Send a /who #channel when you join a channel on your client.
+    "ENABLE_PURGE"    False   # Enable the PURGE command.
 }
 class aka(znc.Module):
     module_types = [znc.CModInfo.UserModule]
@@ -62,8 +63,9 @@ class aka(znc.Module):
         ('rawquery'   , '<query>'                                           , 'Run raw sqlite3 query and return results'),
         ('about'      , ''                                                  , 'Display information about aka'),
         ('stats'      , ''                                                  , 'Print data stats for the current network'),
-        ('config'     , '<variable> <value>'                                , 'Set configuration variables.')
-        ('getconfig'  , ''                                                  , 'Print the current configuration.')
+        ('purge'      , '<number_of_days>'                                  , 'Purge <N> number of days.'),
+        ('config'     , '<variable> <value>'                                , 'Set configuration variables.'),
+        ('getconfig'  , ''                                                  , 'Print the current configuration.'),
         ('help'       , ''                                                  , 'Print help for using the module'),
         ('NOTE'       ,  'User Types'                                       , 'Valid user types are nick, ident, and host.'),
         ('NOTE'       ,  'Wildcard Searches'                                , '<user> supports * and ? GLOB wildcard syntax (combinable at start, middle, and end).')
@@ -553,6 +555,20 @@ class aka(znc.Module):
         self.PutModule("\x02Size:\x02 {} MB".format(os.path.getsize(self.GetSavePath() + "/aka.db") >> 20))
         self.PutModule("\x02Total Records:\x02 {}".format(data[4]))
 
+    def cmd_purge(self, lastseen):
+        if self.nv['ENABLE_PURGE'] == "TRUE":
+            user_query = self.generate_user_query(type, lastseen)
+            if type:
+                self.cur.execute("DELETE FROM USERS WHERE network = '{0}' AND lastseen <= unixepoch('now', '-{1} days');".format(self.GetNetwork().GetName().lower(), lastseen, re.sub(r'([\[\]])', '[\\1]', user_query)))
+                data = self.cur.fetchone()
+            try:
+                #self.PutModule("{} users at {}.".format(data[0], datetime.datetime.fromtimestamp(int(data[1])).strftime('%Y-%m-%d %H:%M:%S')))
+                self.PutModule("{}".format(data[0]))
+            except:
+                self.PutModule("")
+        else:
+            self.PutModule("ENABLE_PURGE IS CURRENTLY DISABLED")
+
     def cmd_who(self, scope):
         if scope == 'all':
             nets = self.GetUser().GetNetworks()
@@ -597,7 +613,7 @@ class aka(znc.Module):
 
     def cmd_config(self, var_name, value):
         valid = True
-        bools = ["WHO_ON_JOIN", "RECORD_WHOIS", "RECORD_WHOWAS"]
+        bools = ["WHO_ON_JOIN", "RECORD_WHOIS", "RECORD_WHOWAS", "ENABLE_PURGE"]
         if var_name.upper() in bools:
             if not str(value).upper() == "TRUE" and not str(value).upper() == "FALSE":
                 valid = False
@@ -643,7 +659,7 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["all", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help"]
+        cmds = ["all", "purge", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help"]
 
         if commands[0] in cmds:
             if "--type=" in line:
@@ -716,7 +732,8 @@ class aka(znc.Module):
                 self.cmd_config(commands[1], commands[2])
             elif commands[0] == "getconfig":
                 self.cmd_getconfig()
-
+            elif commands[0] == "purge":
+                self.cmd_purge(commands[1])
             elif commands[0] == "about":
                 self.cmd_about()
             elif commands[0] == "help":
