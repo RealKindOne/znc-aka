@@ -640,7 +640,7 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["all", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help", "migrate"]
+        cmds = ["all", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help"]
 
         if commands[0] in cmds:
             if "--type=" in line:
