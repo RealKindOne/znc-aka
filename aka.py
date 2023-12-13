@@ -712,9 +712,9 @@ class aka(znc.Module):
                     self.PutModule("You must specify a query.")
             elif commands[0] == "stats":
                 self.cmd_stats()
-            elif command.split()[0] == "config":
-                self.cmd_config(command.split()[1], command.split()[2])
-            elif command.split()[0] == "getconfig":
+            elif commands[0] == "config":
+                self.cmd_config(commands[1], commands[2])
+            elif commands[0] == "getconfig":
                 self.cmd_getconfig()
 
             elif commands[0] == "about":
