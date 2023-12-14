@@ -41,11 +41,13 @@ import sqlite3
 import requests
 
 DEFAULT_CONFIG = {
+    "ENABLE_PURGE":   False,  # Enable the PURGE command.
     "RECORD_WHOIS":   True,   # Record /whois output.
     "RECORD_WHOWAS":  True,   # Record /whowas output.
-    "WHO_ON_JOIN":    True,   # Send a /who #channel when you join a channel on your client.
-    "ENABLE_PURGE"    False   # Enable the PURGE command.
+    "VACUUM_ON_LOAD": False,  # Perform SQLite VACUUM command when module is loaded. This setting will reset itself to FALSE when finished.
+    "WHO_ON_JOIN":    True    # Send a /who #channel when you join a channel on your client.
 }
+
 class aka(znc.Module):
     module_types = [znc.CModInfo.UserModule]
     description = "Tracks users, allowing tracing and history viewing of nicks, hosts, and channels"
@@ -618,6 +620,7 @@ class aka(znc.Module):
             "ENABLE_PURGE"
             "RECORD_WHOIS",
             "RECORD_WHOWAS",
+            "VACUUM_ON_LOAD",
             "WHO_ON_JOIN",
         ]
         if var_name.upper() in bools:
@@ -659,8 +662,9 @@ class aka(znc.Module):
         # self.cur.execute("UPDATE users SET joins = '0' WHERE channel = 'query' and joins = '1';")
         self.conn.commit()
 
-        # Maybe support this in a setting?
-        #self.cur.execute("VACUUM;")
+        if self.nv['VACUUM_ON_LOAD'] == "TRUE":
+            self.cur.execute("VACUUM;")
+            self.SetNV('VACUUM_ON_LOAD', "FALSE")
 
     def OnModCommand(self, command):
         line = command.lower()
