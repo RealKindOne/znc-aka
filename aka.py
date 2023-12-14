@@ -63,7 +63,7 @@ class aka(znc.Module):
         ('rawquery'   , '<query>'                                           , 'Run raw sqlite3 query and return results'),
         ('about'      , ''                                                  , 'Display information about aka'),
         ('stats'      , ''                                                  , 'Print data stats for the current network'),
-        ('purge'      , '<number_of_days>'                                  , 'Purge <N> number of days.'),
+        ('purge'      , '<number_of_days>'                                  , 'Purge everything older than <N> number of days based on the lastseen for the current network.'),
         ('config'     , '<variable> <value>'                                , 'Set configuration variables.'),
         ('getconfig'  , ''                                                  , 'Print the current configuration.'),
         ('help'       , ''                                                  , 'Print help for using the module'),
@@ -123,6 +123,7 @@ class aka(znc.Module):
         priv  = msg.GetParam(1)
         self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'notice', priv)
 
+    # TODO: Update gecos.
     def OnNickMessage(self, msg, vChans):
         if msg.GetTag('account'):
             for chan in vChans:
@@ -613,7 +614,12 @@ class aka(znc.Module):
 
     def cmd_config(self, var_name, value):
         valid = True
-        bools = ["WHO_ON_JOIN", "RECORD_WHOIS", "RECORD_WHOWAS", "ENABLE_PURGE"]
+        bools = [
+            "ENABLE_PURGE"
+            "RECORD_WHOIS",
+            "RECORD_WHOWAS",
+            "WHO_ON_JOIN",
+        ]
         if var_name.upper() in bools:
             if not str(value).upper() == "TRUE" and not str(value).upper() == "FALSE":
                 valid = False
