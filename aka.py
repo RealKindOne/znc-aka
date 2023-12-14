@@ -436,10 +436,10 @@ class aka(znc.Module):
     def cmd_seen(self, type, user, channel):
         user_query = self.generate_user_query(type, user)
         if channel:
-            self.cur.execute("SELECT nick, ident, host, channel, event, message, MAX(lastseen)) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND channel = '{1}' AND ({2});".format(self.GetNetwork().GetName().lower(), channel.lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
+            self.cur.execute("SELECT nick, ident, host, channel, event, message, MAX(lastseen) FROM (SELECT * from users WHERE message IS NOT NULL) WHERE network = '{0}' AND channel = '{1}' AND ({2});".format(self.GetNetwork().GetName().lower(), channel.lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
 
         else:
-            self.cur.execute("SELECT nick, ident, host, channel, event, message, MAX(lastseen)) FROM (SELECT * from users WHERE message IS NOT NULL) \
+            self.cur.execute("SELECT nick, ident, host, channel, event, message, MAX(lastseen) FROM (SELECT * from users WHERE message IS NOT NULL) \
                  WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
         data = self.cur.fetchone()
         try:
