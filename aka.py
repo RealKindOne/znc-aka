@@ -424,15 +424,15 @@ class aka(znc.Module):
         nicks = sorted(list(nicks)); idents = sorted(list(idents)); hosts = sorted(list(hosts));
         size = 100
         index = 0
-        while(index < len(nicks)):
+        while index < len(nicks):
             self.PutModule("\x02Nick(s):\x02 " + ', '.join(nicks[index:index+size]))
             index += size
         index = 0
-        while(index < len(idents)):
+        while index < len(idents):
             self.PutModule("\x02Ident(s):\x02 " + ', '.join(idents[index:index+size]))
             index += size
         index = 0
-        while(index < len(hosts)):
+        while index < len(hosts):
             self.PutModule("\x02Host(s):\x02 " + ', '.join(hosts[index:index+size]))
             index += size
 
