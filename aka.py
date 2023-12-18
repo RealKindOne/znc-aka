@@ -64,7 +64,7 @@ class aka(znc.Module):
         ('process'    , '<scope>'                                           , 'Add all current users in the scope (#channel, network, or all) to the database'),
         ('rawquery'   , '<query>'                                           , 'Run raw sqlite3 query and return results'),
         ('about'      , ''                                                  , 'Display information about aka'),
-        ('stats'      , ''                                                  , 'Print data stats for the current network'),
+        ('stats'      , ''                                                  , 'Print data stats for the current network and the size of the entire database.'),
         ('purge'      , '<number_of_days>'                                  , 'Purge everything older than <N> number of days based on the lastseen for the current network.'),
         ('config'     , '<variable> <value>'                                , 'Set configuration variables.'),
         ('getconfig'  , ''                                                  , 'Print the current configuration.'),
