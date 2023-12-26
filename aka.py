@@ -75,8 +75,8 @@ class aka(znc.Module):
 
     def OnLoad(self, args, message):
         self.USER = self.GetUser().GetUserName()
-        self.db_setup()
         self.configure()
+        self.db_setup()
         return True
 
     def OnJoinMessage(self, msg):
@@ -653,7 +653,45 @@ class aka(znc.Module):
         self.conn = sqlite3.connect(self.GetSavePath() + "/aka.db")
         self.cur = self.conn.cursor()
         self.cur.execute("PRAGMA auto_vacuum=2;")
-        self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
+        self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, kicks INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
+
+        # Upgrading from known 2.0.x
+        # This is updated each time a new column is added.
+        self.cur.execute("PRAGMA table_info(users);")
+        exists = False
+        for table in self.cur:
+            if str(table[1]) == 'gecos':
+                exists = True
+        if exists == False:
+            self.PutModule("Upgrading...")
+            self.cur.execute("ALTER TABLE users RENAME TO users_temp;")
+            self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, kicks INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
+            self.cur.execute("INSERT INTO users (network,nick,ident,host,channel,message,firstseen,lastseen) select network,nick,ident,host,channel,message,time,time from users_temp;")
+            # The sqlite commands increases these each time an event happens. These must be set at 0 when upgrading.
+            self.cur.execute("UPDATE users SET texts = '0', joins = '0', kicks = '0', parts = '0', quits = '0';")
+            self.cur.execute("UPDATE users SET event = 'privmsg', channel = 'query' WHERE channel = 'privmsg';")
+            self.cur.execute("DROP TABLE users_temp;")
+            self.conn.commit()
+            self.cur.execute("VACUUM;")
+            self.PutModule("Upgrading from 2.0.x is done.")
+
+        # Updgrading from 3.0.x - pre-kick.
+        self.cur.execute("PRAGMA table_info(users);")
+        exists = False
+        for table in self.cur:
+            if str(table[1]) == 'kicks':
+                exists = True
+        if exists == False:
+            self.PutModule("Adding 'kicks' column...")
+            self.cur.execute("ALTER TABLE users RENAME TO users_temp;")
+            self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, kicks INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
+            self.cur.execute("INSERT INTO users (network,nick,ident,host,channel,event,message,firstseen,lastseen,texts,joins,parts,quits,account,gecos) select network,nick,ident,host,channel,event,message,firstseen,lastseen,texts,joins,parts,quits,account,gecos from users_temp order by network asc, nick asc;")
+            # The sqlite commands increases this each time a kick event happens. These must be set at 0 when upgrading.
+            self.cur.execute("UPDATE users set kicks = '0';")
+            self.cur.execute("DROP TABLE users_temp;")
+            self.conn.commit()
+            self.cur.execute("VACUUM;")
+            self.PutModule("Adding 'kicks' column is done.")
 
         self.cur.execute("CREATE INDEX IF NOT EXISTS networks ON users (network ASC);")
         self.cur.execute("CREATE INDEX IF NOT EXISTS nicks ON users (nick ASC);")

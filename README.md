@@ -5,27 +5,10 @@ A ZNC module to track users
 
 This version of AKA has been extensively modified from the last known 2.0.3 and 2.0.4 versions on the internet.
 
+WARNING: This script will automatically update your database to the new format. Your database size about a little over 3x in size (2x for the update, 1x for the VACUUM) while doing the first time upgrade. Make sure you have enough storage before attempting this. This might take awhile depending on hardware and size of the database.
+
 Read the CHANGELOG.md file for a full list of new features.
 
-Due to the massive amount of changes to the database you will need to manually update the database in SQLite (while the module is unloaded) to support this version.
-
-This will increase your database size about a little over 3x in size (2x for the update, 1x for the VACUUM) while running these commands. Make sure you have enough storage before attempting this. This might take awhile depending on hardware and size of the database.
-
-    PRAGMA auto_vacuum=2;
-    CREATE TABLE IF NOT EXISTS users_temp (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));
-    INSERT INTO users_temp (network,nick,ident,host,channel,message,firstseen,lastseen) select network,nick,ident,host,channel,message,time,time from users;
-    ALTER TABLE users RENAME TO users_old;
-    ALTER TABLE users_temp RENAME TO users;
-    UPDATE users SET event = '0', texts = '0', joins = '0', parts = '0', quits = '0', account = '0', gecos = '0';
-
-NOTE: Users `firstseen` and `lastseen` will be the same so you will not know the actual `firstseen` on all existing users.
-
-If everything was successful you can delete the old database and use the VACUUM command for recovering free space.
-
-    DROP TABLE users_old;
-    VACUUM;
-
-Done.
 
 ## Table of Contents
 - [Requirements](#requirements)
@@ -85,10 +68,10 @@ Command entered into SQLite (note: do not this while the module is loaded):
 
     sqlite> .mode column
     sqlite> SELECT * FROM users WHERE network = 'libera' AND nick = 'kindone' and channel = '##kindone';
-    id   network  nick     ident     host                    channel    event  message         firstseen   lastseen    texts  joins  parts  quits  account  gecos
-    ---  -------  -------  -------   ----------------------  ---------  -----  --------------  ----------  ----------  -----  -----  -----  -----  -------  -----
-    281  libera   kindone  ~kindone  idlerpg/player/kindone  ##kindone  quit   Quit: Leaving.  1694703000  1694703601  0      1      0      1      kindone  ...
-    282  libera   kindone  kindone   idlerpg/player/kindone  ##kindone  join                   1694703977  1702319802  36     8      7      1      kindone  ...
+    id   network  nick     ident     host                    channel    event  message         firstseen   lastseen    texts  joins kicks parts  quits  account  gecos
+    ---  -------  -------  -------   ----------------------  ---------  -----  --------------  ----------  ----------  -----  ----- ----- -----  -----  -------  -----
+    281  libera   kindone  ~kindone  idlerpg/player/kindone  ##kindone  quit   Quit: Leaving.  1694703000  1694703601  0      1     0     0      1      kindone  ...
+    282  libera   kindone  kindone   idlerpg/player/kindone  ##kindone  join                   1694703977  1702319802  36     8     0     7      1      kindone  ...
 
 `rawquery` responses are printed in `csv` format for IRC clients.
 
