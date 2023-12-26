@@ -25,9 +25,8 @@
 
 # WARNING:
 # The database format has been extensively modified.
-# If you are updating from a 2.0.x versions you must
-# run the SQLite commands in the README.md file before
-# you load this module.
+# This module will AUTOMATICALLY update your database to the new format.
+# Read the README.md file before upgrading.
 
 version = '3.1.0'
 updated = "Dec 25, 2023"
@@ -114,27 +113,24 @@ class aka(znc.Module):
                 channel = str(chan.GetName().replace("'","''"))
                 self.process_quit(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'quit', quitmsg)
 
-    # OnUser..() events will set the 'joins' column at '1' if sent to a query. Don't need to create a separate self.process_ ... for this.
+    # The OnUser...Message events will add a '1' into the join column since it shares the same process_message code for channels.
     def OnUserTextMessage(self, msg):
         nick  = self.GetNetwork().GetCurNick()
         ident = self.GetNetwork().GetIRCNick().GetIdent()
         host  = self.GetNetwork().GetIRCNick().GetHost()
-        priv  = msg.GetParam(1)
-        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'privmsg', priv)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetTarget(), 'privmsg', msg.GetText())
 
     def OnUserActionMessage(self, msg):
         nick  = self.GetNetwork().GetCurNick()
         ident = self.GetNetwork().GetIRCNick().GetIdent()
         host  = self.GetNetwork().GetIRCNick().GetHost()
-        priv  = msg.GetParam(1)
-        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'privmsg', '* ' + priv)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetTarget(), 'privmsg', '* ' + msg.GetText())
 
     def OnUserNoticeMessage(self, msg):
         nick  = self.GetNetwork().GetCurNick()
         ident = self.GetNetwork().GetIRCNick().GetIdent()
         host  = self.GetNetwork().GetIRCNick().GetHost()
-        priv  = msg.GetParam(1)
-        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetParam(0), 'notice', priv)
+        self.process_message(self.GetNetwork().GetName(), nick, ident, host, msg.GetTarget(), 'notice', msg.GetText())
 
     # TODO: Update gecos.
     def OnNickMessage(self, msg, vChans):
@@ -158,7 +154,6 @@ class aka(znc.Module):
     def OnChanTextMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), msg.GetChan().GetName(), 'privmsg', msg.GetText())
 
-    # Assume everything is PRIVMSG
     def OnPrivActionMessage(self, msg):
         self.process_message(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), 'query', 'privmsg', '* ' + msg.GetText())
 
@@ -728,8 +723,7 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["all", "purge", "history", "config", "getconfig", "users", "channels", "sharedchans", "sharedusers", "seen", "geo", "process", "who", "rawquery", "import", "stats", "about", "help"]
-
+        cmds = ["about", "all", "channels", "config", "geo", "getconfig", "help", "history", "process", "purge", "rawquery", "seen", "sharedchans", "sharedusers", "stats", "users", "who"]
         if commands[0] in cmds:
             if "--type=" in line:
                 type = (line.split('=')[1]).lower()
