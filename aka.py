@@ -29,8 +29,8 @@
 # run the SQLite commands in the README.md file before
 # you load this module.
 
-version = '3.0.0'
-updated = "Dec 10, 2023"
+version = '3.1.0'
+updated = "Dec 25, 2023"
 
 import znc
 import os
@@ -42,6 +42,7 @@ import requests
 
 DEFAULT_CONFIG = {
     "ENABLE_PURGE":   False,  # Enable the PURGE command.
+    "RECORD_KICK":    True,   # Kick's need to use MAX(lastseen) to get the ident/host of the kicked user (if it exists). This can be cpu/drive expensive.
     "RECORD_WHOIS":   True,   # Record /whois output.
     "RECORD_WHOWAS":  True,   # Record /whowas output.
     "VACUUM_ON_LOAD": False,  # Perform SQLite VACUUM command when module is loaded. This setting will reset itself to FALSE when finished.
@@ -83,6 +84,16 @@ class aka(znc.Module):
         channel = str(msg.GetChan().GetName()).replace("'","''")
         gecos   = str(msg.GetParam(2)).replace("'","''")
         self.process_join(self.GetNetwork().GetName(), msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, 'join', msg.GetParam(1), gecos)
+
+    # KNOWN ISSUES:
+    # It is possible to get NULL 'ident' and 'host' entries for the kicked nick. This happens when the user does not exist in the database and they get kicked.
+    def OnKickMessage(self, msg):
+        if self.nv['RECORD_KICK'] == "TRUE":
+            channel = str(msg.GetChan().GetName().replace("'","''"))
+            message = str(msg.GetReason().replace("'","''"))
+            self.cur.execute("SELECT ident, host, MAX(lastseen) FROM users WHERE network = '{0}' AND nick = '{1}';".format(self.GetNetwork().GetName().lower(), msg.GetKickedNick().lower()))
+            for row in self.cur:
+                self.on_kick_process(msg.GetNick().GetNick(), msg.GetNick().GetHost(), msg.GetNick().GetIdent(), channel, msg.GetKickedNick(), row[0], row[1], message)
 
     def OnPartMessage(self, msg):
         channel  = str(msg.GetChan().GetName()).replace("'","''")
@@ -260,8 +271,8 @@ class aka(znc.Module):
     def process_user_who(self, network, nick, ident, host, channel, gecos):
         gecos = str(gecos).replace("'","''")
         channel = str(channel).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, gecos) \
-            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, gecos) \
+            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set gecos = EXCLUDED.gecos, lastseen = strftime('%s', 'now');", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), gecos.lower()))
         self.conn.commit()
@@ -269,72 +280,81 @@ class aka(znc.Module):
     def process_user_mirc_who(self, network, nick, ident, host, channel, account, gecos):
         gecos = str(gecos).replace("'","''")
         channel = str(channel).replace("'","''")
-        #           n  n  i  h  c   event   t      first                  last             text     j    p   q    a  g
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
-            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, ?, '/who', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set gecos = EXCLUDED.gecos, account = EXCLUDED.account, lastseen = strftime('%s', 'now');", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), account.lower(), gecos.lower()))
         self.conn.commit()
 
     def process_join(self, network, nick, ident, host, channel, event, account, gecos):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
-            VALUES (?, ?, ?, ?, ?, ?, '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, ?, ?, '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = '', event = EXCLUDED.event, lastseen = strftime('%s', 'now'), joins = joins + 1, account = EXCLUDED.account, gecos = EXCLUDED.gecos;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, account.lower(), gecos.lower()))
         self.conn.commit()
 
+    def on_kick_process(self, op_nick, op_host, op_ident, channel, nick, ident, host, message):
+        self.process_kick(self.GetNetwork().GetName(), nick, ident, host, channel, 'kicked', message)
+
+    def process_kick(self, network, nick, ident, host, channel, event, message):
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
+            DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), kicks = kicks + 1 ;", \
+            (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
+        self.conn.commit()
+
     def process_part(self, network, nick, ident, host, channel, event, message):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0') ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), parts = parts + 1 ;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
     def process_part_account(self, network, nick, ident, host, channel, event, message, account):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, account = EXCLUDED.account, lastseen = strftime('%s', 'now'), parts = parts + 1 ;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message, account.lower()))
         self.conn.commit()
 
     def process_quit(self, network, nick, ident, host, channel, event, message):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1') ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', '1') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), quits = quits + 1 ;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
 
     def process_quit_account(self, network, nick, ident, host, channel, event, message, account):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '1', ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '0', '0', '1', ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), account = EXCLUDED.account, quits = quits + 1 ;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message, account.lower()))
         self.conn.commit()
 
     def process_nick_change_new(self, network, nick, ident, host, channel, message):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
-            VALUES (?, ?, ?, ?, ?, 'nick', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, 'nick', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower()))
         self.conn.commit()
 
     def process_nick_change_old(self, network, nick, ident, host, channel, message):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
-            VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower()))
         self.conn.commit()
 
     def process_nick_change_new_account(self, network, nick, ident, host, channel, message, account):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
-            VALUES (?, ?, ?, ?, ?, 'nick', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, 'nick', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event, account = EXCLUDED.account;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower(), account.lower()))
         self.conn.commit()
 
     def process_nick_change_old_account(self, network, nick, ident, host, channel, message, account):
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account) \
-            VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account) \
+            VALUES (?, ?, ?, ?, ?, 'nicked', ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0', ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set message = EXCLUDED.message, lastseen = strftime('%s', 'now'), event = EXCLUDED.event, account = EXCLUDED.account;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), message.lower(), account.lower()))
         self.conn.commit()
@@ -346,8 +366,8 @@ class aka(znc.Module):
     def process_message(self, network, nick, ident, host, channel, event, message):
         channel = str(channel).replace("'","''")
         message = str(message).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits) \
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '1', '1', '0', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set event = EXCLUDED.event, message = EXCLUDED.message, lastseen = strftime('%s', 'now'), texts = texts + 1;", \
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, message))
         self.conn.commit()
@@ -358,16 +378,16 @@ class aka(znc.Module):
 
     def process_whois(self, network, whois_nick, whois_ident, whois_host, whois_account, whois_gecos):
         gecos = str(whois_gecos).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
-            VALUES (?, ?, ?, ?, '/whois', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, '/whois', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set account = EXCLUDED.account ,gecos = EXCLUDED.gecos, lastseen = strftime('%s', 'now');", \
             (network.lower(), whois_nick.lower(), whois_ident.lower(), whois_host.lower(), whois_account.lower(), whois_gecos.lower()))
         self.conn.commit()
 
     def process_whowas(self, network, whowas_nick, whowas_ident, whowas_host, whowas_account, whowas_gecos):
         gecos = str(whowas_gecos).replace("'","''")
-        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, parts, quits, account, gecos) \
-            VALUES (?, ?, ?, ?, '/whowas', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
+        self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits, account, gecos) \
+            VALUES (?, ?, ?, ?, '/whowas', '', '', strftime('%s', 'now'), strftime('%s', 'now'), '0', '0', '0', '0', '0', ?, ?) ON CONFLICT(network,nick,ident,host,channel) \
             DO UPDATE set account = EXCLUDED.account ,gecos = EXCLUDED.gecos;", \
             (network.lower(), whowas_nick.lower(), whowas_ident.lower(), whowas_host.lower(), whowas_account.lower(), whowas_gecos.lower()))
         self.conn.commit()
@@ -617,11 +637,12 @@ class aka(znc.Module):
     def cmd_config(self, var_name, value):
         valid = True
         bools = [
-            "ENABLE_PURGE"
+            "ENABLE_PURGE",
+            "RECORD_KICK",
             "RECORD_WHOIS",
             "RECORD_WHOWAS",
             "VACUUM_ON_LOAD",
-            "WHO_ON_JOIN",
+            "WHO_ON_JOIN"
         ]
         if var_name.upper() in bools:
             if not str(value).upper() == "TRUE" and not str(value).upper() == "FALSE":

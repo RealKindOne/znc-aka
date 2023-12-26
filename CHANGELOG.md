@@ -1,5 +1,14 @@
 # Changelog:
 
+
+### Version 3.1.0
+
+  * Added `OnKickMessage` for recording kicks.
+  * Added `RECORD_WHOIS`, `RECORD_WHOIS`, and `WHO_ON_JOIN`settings.
+  * Added `purge` command for deleting old data.
+  * Added `VACUUM_ON_LOAD` command for vacuuming the database.
+  *
+
 ### Version 3.0.0
 
   * Added `event` column for recording the last type of event someone used; JOIN, NICK, NOTICE, PART, PRIVMSG, QUIT
