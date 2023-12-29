@@ -691,7 +691,7 @@ class aka(znc.Module):
             self.cur.execute("VACUUM;")
             self.PutModule("Upgrading from 2.0.x is done.")
 
-        # Updgrading from 3.0.x - pre-kick.
+        # Upgrading from 3.0.x - pre-kick.
         self.cur.execute("PRAGMA table_info(users);")
         exists = False
         for table in self.cur:

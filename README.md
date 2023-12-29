@@ -5,7 +5,7 @@ A ZNC module to track users
 
 This version of AKA has been extensively modified from the last known 2.0.3 and 2.0.4 versions on the internet.
 
-WARNING: This script will automatically update your database to the new format. Your database size about a little over 3x in size (2x for the update, 1x for the VACUUM) while doing the first time upgrade. Make sure you have enough storage before attempting this. This might take awhile depending on hardware and size of the database.
+WARNING: This script will automatically update your database to the new format. Your database size will grow about a little over 3x in size (2x for the update, 1x for the VACUUM) while doing the first time upgrade. Make sure you have enough storage before attempting this. This might take awhile depending on hardware and size of the database.
 
 Read the CHANGELOG.md file for a full list of new features.
 
