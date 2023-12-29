@@ -92,7 +92,7 @@ class aka(znc.Module):
             message = str(msg.GetReason().replace("'","''"))
             self.cur.execute("SELECT ident, host, MAX(lastseen) FROM users WHERE network = '{0}' AND nick = '{1}';".format(self.GetNetwork().GetName().lower(), msg.GetKickedNick().lower()))
             for row in self.cur:
-                self.on_kick_process(msg.GetNick().GetNick(), msg.GetNick().GetHost(), msg.GetNick().GetIdent(), channel, msg.GetKickedNick(), row[0], row[1], message)
+                self.on_kick_process(msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetKickedNick(), row[0], row[1], message)
 
     def OnPartMessage(self, msg):
         channel  = str(msg.GetChan().GetName()).replace("'","''")
@@ -288,7 +288,7 @@ class aka(znc.Module):
             (network.lower(), nick.lower(), ident.lower(), host.lower(), channel.lower(), event, account.lower(), gecos.lower()))
         self.conn.commit()
 
-    def on_kick_process(self, op_nick, op_host, op_ident, channel, nick, ident, host, message):
+    def on_kick_process(self, op_nick, op_ident, op_host, channel, nick, ident, host, message):
         self.process_kick(self.GetNetwork().GetName(), nick, ident, host, channel, 'kicked', message)
 
     def process_kick(self, network, nick, ident, host, channel, event, message):
