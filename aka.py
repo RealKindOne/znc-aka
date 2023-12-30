@@ -89,12 +89,11 @@ class aka(znc.Module):
     # KNOWN ISSUES:
     # It is possible to get NULL 'ident' and 'host' entries for the kicked nick. This happens when the user does not exist in the database and they get kicked.
     def OnKickMessage(self, msg):
-        if self.nv['RECORD_KICK'] == "TRUE":
+        if self.nv['RECORD_KICK'] == "TRUE" or self.nv['RECORD_MODERATED'] == "TRUE":
             channel = str(msg.GetChan().GetName().replace("'","''"))
-            message = str(msg.GetReason().replace("'","''"))
             self.cur.execute("SELECT ident, host, MAX(lastseen) FROM users WHERE network = '{0}' AND nick = '{1}';".format(self.GetNetwork().GetName().lower(), msg.GetKickedNick().lower()))
             for row in self.cur:
-                self.on_kick_process(msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetKickedNick(), row[0], row[1], message)
+                self.on_kick_process(msg.GetNick().GetNick(), msg.GetNick().GetIdent(), msg.GetNick().GetHost(), channel, msg.GetKickedNick(), row[0], row[1], msg.GetReason())
 
     def OnPartMessage(self, msg):
         channel  = str(msg.GetChan().GetName()).replace("'","''")
@@ -266,6 +265,7 @@ class aka(znc.Module):
                 self.process_chan_join(self.GetNetwork().GetName(), nick, ident, host, channel.GetName(), 'join', account, gecos)
 
     def OnMode(self, op, channel, mode, arg, added, nochange):
+        channel = str(channel).replace("'","''")
         if self.nv['RECORD_MODERATED'] == "TRUE":
             mode = chr(mode)
             if added:
@@ -277,8 +277,6 @@ class aka(znc.Module):
                 self.process_moderated(self.GetNetwork().GetName(), op.GetNick(), op.GetIdent(), op.GetHost(), channel, mode, None, str(arg).split('!')[0], str((arg).split('@')[0]).split('!')[1], str(arg).split('@')[1], added)
 
     def process_moderated(self, network, op_nick, op_ident, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added):
-        channel = str(channel).replace("'","''")
-        message = str(message).replace("'","''")
         # TODO: Convert this...
         time    = datetime.datetime.now()
         self.cur.execute("INSERT INTO moderated (network, op_nick, op_ident, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added, time) \
@@ -312,10 +310,12 @@ class aka(znc.Module):
         self.conn.commit()
 
     def on_kick_process(self, op_nick, op_ident, op_host, channel, nick, ident, host, message):
-        self.process_kick(self.GetNetwork().GetName(), nick, ident, host, channel, 'kicked', message)
+        message = str(message).replace("'","''")
+        if self.nv['RECORD_KICK'] == "TRUE":
+            self.process_kick(self.GetNetwork().GetName(), nick, ident, host, channel, 'kicked', message)
         if self.nv['RECORD_MODERATED'] == "TRUE":
             self.process_moderated(self.GetNetwork().GetName(), op_nick, op_ident, op_host, channel, 'k', message, nick, ident, host, None)
- 
+
     def process_kick(self, network, nick, ident, host, channel, event, message):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
             VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
