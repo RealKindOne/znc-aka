@@ -1,5 +1,11 @@
 # Changelog:
 
+### Version 3.2.0
+
+  * Added support tracking kicks/bans/quiets. (From 1.10.x)
+  * Added `offenses` command. (From 1.10.x)
+  * Added `RECORD_MODERATED` setting for enabling and disabling the two features above.
+
 
 ### Version 3.1.0
 
@@ -7,7 +13,7 @@
   * Added `RECORD_WHOIS`, `RECORD_WHOIS`, and `WHO_ON_JOIN`settings.
   * Added `purge` command for deleting old data.
   * Added `VACUUM_ON_LOAD` command for vacuuming the database.
-  *
+  * Added `kicks` column for the numer of times the person has been kicked.
 
 ### Version 3.0.0
 

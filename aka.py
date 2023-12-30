@@ -28,8 +28,8 @@
 # This module will AUTOMATICALLY update your database to the new format.
 # Read the README.md file before upgrading.
 
-version = '3.1.0'
-updated = "Dec 25, 2023"
+version = '3.2.0'
+updated = "Dec 30, 2023"
 
 import znc
 import os
@@ -40,12 +40,13 @@ import sqlite3
 import requests
 
 DEFAULT_CONFIG = {
-    "ENABLE_PURGE":   False,  # Enable the PURGE command.
-    "RECORD_KICK":    True,   # Kick's need to use MAX(lastseen) to get the ident/host of the kicked user (if it exists). This can be cpu/drive expensive.
-    "RECORD_WHOIS":   True,   # Record /whois output.
-    "RECORD_WHOWAS":  True,   # Record /whowas output.
-    "VACUUM_ON_LOAD": False,  # Perform SQLite VACUUM command when module is loaded. This setting will reset itself to FALSE when finished.
-    "WHO_ON_JOIN":    True    # Send a /who #channel when you join a channel on your client.
+    "ENABLE_PURGE":     False,  # Enable the PURGE command.
+    "RECORD_KICK":      True,   # Record kicking in the "users" table.
+    "RECORD_MODERATED": False,  # Record kicking, banning, and quieting in the "moderated" table.
+    "RECORD_WHOIS":     True,   # Record /whois output.
+    "RECORD_WHOWAS":    True,   # Record /whowas output.
+    "VACUUM_ON_LOAD":   False,  # Perform SQLite VACUUM command when module is loaded. This setting will reset itself to FALSE when finished.
+    "WHO_ON_JOIN":      True    # Send a /who #channel when you join a channel on your client.
 }
 
 class aka(znc.Module):
@@ -68,6 +69,7 @@ class aka(znc.Module):
         ('purge'      , '<number_of_days>'                                  , 'Purge everything older than <N> number of days based on the lastseen for the current network.'),
         ('config'     , '<variable> <value>'                                , 'Set configuration variables.'),
         ('getconfig'  , ''                                                  , 'Print the current configuration.'),
+        ('offenses'   , '<in #channel> nick|host'                           , 'Display moderation history for nick or host. You can specify a channel'),
         ('help'       , ''                                                  , 'Print help for using the module'),
         ('NOTE'       ,  'User Types'                                       , 'Valid user types are nick, ident, and host.'),
         ('NOTE'       ,  'Wildcard Searches'                                , '<user> supports * and ? GLOB wildcard syntax (combinable at start, middle, and end).')
@@ -263,6 +265,27 @@ class aka(znc.Module):
             for channel in self.GetNetwork().GetChans():
                 self.process_chan_join(self.GetNetwork().GetName(), nick, ident, host, channel.GetName(), 'join', account, gecos)
 
+    def OnMode(self, op, channel, mode, arg, added, nochange):
+        if self.nv['RECORD_MODERATED'] == "TRUE":
+            mode = chr(mode)
+            if added:
+                char = '+'
+            else:
+                char = '-'
+
+            if mode == "b" or mode == "q":
+                self.process_moderated(self.GetNetwork().GetName(), op.GetNick(), op.GetIdent(), op.GetHost(), channel, mode, None, str(arg).split('!')[0], str((arg).split('@')[0]).split('!')[1], str(arg).split('@')[1], added)
+
+    def process_moderated(self, network, op_nick, op_ident, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added):
+        channel = str(channel).replace("'","''")
+        message = str(message).replace("'","''")
+        # TODO: Convert this...
+        time    = datetime.datetime.now()
+        self.cur.execute("INSERT INTO moderated (network, op_nick, op_ident, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added, time) \
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", \
+        (network.lower(), op_nick, op_ident, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added, time))
+        self.conn.commit()
+
     def process_user_who(self, network, nick, ident, host, channel, gecos):
         gecos = str(gecos).replace("'","''")
         channel = str(channel).replace("'","''")
@@ -290,7 +313,9 @@ class aka(znc.Module):
 
     def on_kick_process(self, op_nick, op_ident, op_host, channel, nick, ident, host, message):
         self.process_kick(self.GetNetwork().GetName(), nick, ident, host, channel, 'kicked', message)
-
+        if self.nv['RECORD_MODERATED'] == "TRUE":
+            self.process_moderated(self.GetNetwork().GetName(), op_nick, op_ident, op_host, channel, 'k', message, nick, ident, host, None)
+ 
     def process_kick(self, network, nick, ident, host, channel, event, message):
         self.cur.execute("INSERT INTO users (network, nick, ident, host, channel, event, message, firstseen, lastseen, texts, joins, kicks, parts, quits) \
             VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now'), '0', '1', '1', '0', '0') ON CONFLICT(network,nick,ident,host,channel) \
@@ -629,11 +654,67 @@ class aka(znc.Module):
         for key, value in self.nv.items():
             self.PutModule("%s = %s" % (key, value))
 
+    # TODO: Write this better.
+    def cmd_offenses(self, method, user_type, user, channel):
+        query = ''
+        network = self.GetNetwork().GetName().lower()
+        cols = "op_nick, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added, time"
+        if method == "user":
+            if user_type == "nick":
+                self.cur.execute("SELECT host, nick FROM users WHERE network = '{0}' AND nick = '{1}' GROUP BY host ORDER BY host;".format(self.GetNetwork().GetName().lower(), user.lower()))
+                query = "SELECT %s FROM moderated WHERE network = '%s' AND LOWER(offender_nick) = '%s' OR LOWER(offender_nick) LIKE '%s!%%' OR LOWER(offender_nick) LIKE '%s*%%'" % (cols, network, user.lower(), user.lower(), user.lower())
+                for row in self.cur:
+                    query +=  " OR LOWER(offender_host) = '%s'" % row[0].lower()
+                query += " ORDER BY time;"
+            elif user_type == "host":
+                query = "SELECT %s FROM moderated WHERE network = '%s' AND LOWER(offender_host) = '%s' ORDER BY time;" % (cols, network, user.lower())
+        elif method == "channel":
+            if user_type == "nick":
+                self.cur.execute("SELECT host, nick FROM users WHERE network = '{0}' AND nick = '{1} GROUP BY host ORDER BY host;".format(self.GetNetwork().GetName().lower(), user.lower()))
+                query = "SELECT %s FROM moderated WHERE network = '%s' AND channel = '%s' AND (LOWER(offender_nick) = '%s' OR LOWER(offender_nick) LIKE '%s!%%' OR LOWER(offender_nick) LIKE '%s*%%'" % (cols, network, channel, user.lower(), user.lower(), user.lower())
+                for row in self.cur:
+                    query +=  " OR LOWER(offender_host) = '%s'" % row[0].lower()
+                query += ") ORDER BY time;"
+            elif user_type == "host":
+                query = "SELECT %s FROM moderated WHERE network = '%s' AND channel = '%s' AND LOWER(offender_host) = '%s' ORDER BY time;" % (cols, network, channel, user.lower())
+        self.cur.execute(query)
+        data = self.cur.fetchall()
+        if len(data) > 0:
+            count = 0
+            for op_nick, op_host, channel, action, message, offender_nick, offender_ident, offender_host, added, time in data:
+                count += 1
+                if user_type == "nick":
+                    offender = offender_host
+                elif user_type == "host":
+                    offender = offender_nick
+                if action == 'b' or action == 'q':
+                    if action == 'b':
+                        action = 'banned'
+                    elif action =='q':
+                        action = 'quieted'
+                    if added == '0':
+                        action = "un%s" % action
+                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s." % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, channel, op_nick, time.partition('.')[0]))
+                elif action == "k" or action == "rm":
+                    if action == "k":
+                        action = "kicked"
+                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s. Reason: %s" % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, channel, op_nick, time.partition('.')[0], message))
+            if method == "user":
+                self.PutModule("%s %s: %s total offenses." % (user_type.title(), user, count))
+            elif method == "channel":
+                self.PutModule("%s %s: %s total offenses in %s." % (user_type.title(), user, count, channel))
+        else:
+            if method == "channel":
+                self.PutModule("No offenses found for %s: %s in %s" % (user_type, user, channel))
+            else:
+                self.PutModule("No offenses found for %s: %s" % (user_type, user))
+
     def cmd_config(self, var_name, value):
         valid = True
         bools = [
             "ENABLE_PURGE",
             "RECORD_KICK",
+            "RECORD_MODERATED",
             "RECORD_WHOIS",
             "RECORD_WHOWAS",
             "VACUUM_ON_LOAD",
@@ -670,7 +751,8 @@ class aka(znc.Module):
         self.cur = self.conn.cursor()
         self.cur.execute("PRAGMA auto_vacuum=2;")
         self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, kicks INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
-
+        # Note: The 'added' column is either going to be '0' or '1'. Just use TEXT so the number gets '' around them. Without the '' the offenses command thinks all entries are banned.
+        self.cur.execute("CREATE TABLE IF NOT EXISTS moderated (network TEXT, op_nick TEXT, op_ident TEXT, op_host TEXT, channel TEXT, action TEXT, message TEXT, offender_nick TEXT, offender_ident TEXT, offender_host TEXT, added TEXT, time);")
         # Upgrading from known 2.0.x
         # This is updated each time a new column is added.
         self.cur.execute("PRAGMA table_info(users);")
@@ -709,6 +791,21 @@ class aka(znc.Module):
             self.cur.execute("VACUUM;")
             self.PutModule("Adding 'kicks' column is done.")
 
+        # Upgrading from a experimental versions on gist...
+        self.cur.execute("PRAGMA table_info(moderated);")
+        exists = False
+        for table in self.cur:
+            if str(table[1]) == 'network' and str(table[2]) == 'TEXT':
+                exists = True
+        if exists == False:
+            self.PutModule("Updating moderating tables...")
+            self.cur.execute("ALTER TABLE moderated RENAME TO moderated_temp;")
+            # Note: The 'added' column is either going to be '0' or '1'. Just use TEXT so the number gets '' around them. Without the '' the offenses command thinks all entries are banned.
+            self.cur.execute("CREATE TABLE IF NOT EXISTS moderated (network TEXT, op_nick TEXT, op_ident TEXT, op_host TEXT, channel TEXT, action TEXT, message TEXT, offender_nick TEXT, offender_ident TEXT, offender_host TEXT, added TEXT, time INTEGER);")
+            self.cur.execute("INSERT INTO moderated (network,op_nick,op_ident,op_host,channel,action,message,offender_nick,offender_ident,offender_host,added,time) select network,op_nick,op_ident,op_host,channel,action,message,offender_nick,offender_ident,offender_host,added,time from moderated_temp;")
+            self.cur.execute("DROP TABLE moderated_temp;")
+            self.PutModule("Updating is done.")
+            self.conn.commit()
         self.cur.execute("CREATE INDEX IF NOT EXISTS networks ON users (network ASC);")
         self.cur.execute("CREATE INDEX IF NOT EXISTS nicks ON users (nick ASC);")
 
@@ -723,7 +820,7 @@ class aka(znc.Module):
     def OnModCommand(self, command):
         line = command.lower()
         commands = line.split()
-        cmds = ["about", "all", "channels", "config", "geo", "getconfig", "help", "history", "process", "purge", "rawquery", "seen", "sharedchans", "sharedusers", "stats", "users", "who"]
+        cmds = ["about", "all", "channels", "config", "geo", "getconfig", "help", "history", "offenses", "process", "purge", "rawquery", "seen", "sharedchans", "sharedusers", "stats", "users", "who"]
         if commands[0] in cmds:
             if "--type=" in line:
                 type = (line.split('=')[1]).lower()
@@ -801,6 +898,22 @@ class aka(znc.Module):
                 self.cmd_about()
             elif commands[0] == "help":
                 self.cmd_help()
+            elif command.split()[0] == "offenses":
+                cmds = ["in", "nick", "host"]
+                if command.split()[1] in cmds:
+                    if command.split()[1] == "nick":
+                        self.cmd_offenses("user", "nick", command.split()[2], None)
+                    elif command.split()[1] == "host":
+                        self.cmd_offenses("user", "host", command.split()[2], None)
+                    elif command.split()[1] == "in":
+                        if command.split()[2] == "nick":
+                            self.cmd_offenses("channel", "nick", command.split()[4], command.split()[3])
+                        elif command.split()[2] == "host":
+                            self.cmd_offenses("channel", "host", command.split()[4], command.split()[3])
+                        else:
+                            self.PutModule(command.split()[0] + " " + command.split()[1] + " " + command.split()[2] + " is not a valid command.")
+                else:
+                    self.PutModule(command.split()[0] + " " + command.split()[1] + " is not a valid command.")
         else:
             self.PutModule("Invalid command. See \x02help\x02 for a list of available commands.")
 
