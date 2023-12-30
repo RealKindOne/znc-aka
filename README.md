@@ -34,17 +34,7 @@ To install aka, place aka.py in your ZNC modules folder
 
 ## Commands
 
-`all <user>` Get all information on a user (nick, ident, or host)
-
 `history <user>` Show history for a user (nick, ident, or host)
-
-`users <#channel 1> [<#channel 2>] ... [<#channel #>]` Show common users between a list of channels
-
-`channels <user 1> [<user 2>] ... [<user #>]` Show common channels between a list of users (nicks, idents, and/or hosts)
-
-`seen <user> [<#channel>]` Display last time user (nick, ident, or host) was seen speaking
-
-`geo <user>` Geolocates user (nick, ident, host, IP, or domain)
 
 `who <scope>` Update userdata on all users in the scope (#channel, network, or all)
 
@@ -52,15 +42,79 @@ To install aka, place aka.py in your ZNC modules folder
 
 `rawquery <query>` Run raw sqlite3 query and return results
 
+
+### Aggregate Commands
+
+`all <user>` Get all information on a user (nick, ident, or host)
+
+
+### User Lookup commands
+
+`users <#channel 1> [<#channel 2>] ... [<#channel #>]` Show common users between a list of channels
+
+`channels <user 1> [<user 2>] ... [<user #>]` Show common channels between a list of users (nicks, idents, and/or hosts)
+
+`geo <user>` Geolocates user (nick, ident, host, IP, or domain)
+
+
+### Moderation History Commands
+
+`offenses nick <nick>` Display kick/ban/quiet history for nick
+
+`offenses host <host>` Display kick/ban/quiet history for host
+
+`offenses in nick <#channel> <nick>` Display kick/ban/quiet history for nick in channel
+
+`offenses in host <#channel> <host>` Display kick/ban/quiet history for host in channel
+
+
+### User Information Commands
+
+Note: This command can use `nick`, `ident`, or `host` for the `--type=`
+
+`seen <user>` Display last time the (nick, ident, or host) was seen on the network.
+
+`seen <user> <#channel>` Display last time the (nick, ident, or host) was seen in the channel.
+
+`seen <user> --type=ident` Display the last seen user with that ident.
+
+`seen <user> <#channel> --type=ident` Display the last user seen with that ident in the channel.
+
+
+### Other Commands
+
 `about` Display information about aka
+
+`help` Print help from the module
 
 `stats` Print data stats for the current network. Also shows total database size.
 
-`help` Print help from the module
+
+## Configuration
+
+### Commands
+
+`getconfig` Prints the current settings.
+
+`config <FEATURE> TRUE|FALSE` Enable or disable a setting.
+
+
+### Variables
+                                                                                                                    
+  * **ENABLE_PURGE** *(True/False)* Enable the PURGE command.
+  * **RECORD_KICK** *(True/False)*  Record kicking in the "users" table.
+  * **RECORD_MODERATED** *(True/False)* Record kicking, banning, and quieting in the "moderated" table.
+  * **RECORD_WHOIS** *(True/False)* Record /whois output.
+  * **RECORD_WHOWAS** *(True/False)* Record /whowas output.
+  * **VACUUM_ON_LOAD** *(True/False)* Perform SQLite VACUUM command when module is loaded. This setting will reset itself to FALSE when finished.
+  * **WHO_ON_JOIN** *(True/False)* Send a /who #channel when you join a channel on your client.
+
+## Other Stuff
 
 ### Wildcard Searches
 
 All `<user>` searches support GLOB syntax. `*` will match any number of characters and `?` will match a single character. Can be combined and used at the start, middle, and end of the `<user>` block(s).
+
 
 ## Examples
 
@@ -112,6 +166,7 @@ If any of those are different a new row is created for the user.
 All data (nick,ident,host,channel,etc..) is stored in lowercase except for the `message`.
 The `account` and `gecos` columns are overwritten with the most recent one that was seen.
 Do NOT make a copy of the database while the module is loaded. You can easily get a corrupted copy if there is channel/query activity.
+
 
 ## Contact
 
