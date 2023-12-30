@@ -487,7 +487,7 @@ class aka(znc.Module):
         data = self.cur.fetchone()
         try:
             self.PutModule("\x02{}\x02 ({}@{}) was last seen in \x02{}\x02 at \x02{}\x02 doing \x02{}\x02: \"{}\"."\
-                .format(data[0], data[1], data[2],data[3], datetime.datetime.fromtimestamp(int(data[6])).strftime('%Y-%m-%d %H:%M:%S'), data[4], data[5]))
+                .format(data[0], data[1], data[2],str(data[3]).replace("''","'"), datetime.datetime.fromtimestamp(int(data[6])).strftime('%Y-%m-%d %H:%M:%S'), data[4], str(data[5]).replace("''","'")))
         except:
             if channel:
                 self.PutModule("\x02{}\x02 has \x02\x034not\x03\x02 been seen in \x02{}\x02.".format(user.lower(), channel.lower()))
@@ -694,11 +694,11 @@ class aka(znc.Module):
                         action = 'quieted'
                     if added == '0':
                         action = "un%s" % action
-                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s." % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, channel, op_nick, time.partition('.')[0]))
+                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s." % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, str(channel).replace("''","'"), op_nick, time.partition('.')[0]))
                 elif action == "k" or action == "rm":
                     if action == "k":
                         action = "kicked"
-                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s. Reason: %s" % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, channel, op_nick, time.partition('.')[0], message))
+                    self.PutModule("%s %s (%s!%s@%s) was %s from %s by %s on %s. Reason: %s" % (user_type.title(), user, offender_nick, offender_ident, offender_host, action, str(channel).replace("''","'"), op_nick, time.partition('.')[0], str(message).replace("''","'")))
             if method == "user":
                 self.PutModule("%s %s: %s total offenses." % (user_type.title(), user, count))
             elif method == "channel":
