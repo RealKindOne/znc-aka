@@ -59,7 +59,7 @@ class aka(znc.Module):
         ('history'    , '<user> [--type=type]'                              , 'Show history for a user'),
         ('users'      , '<#channel1> [<#channel2>] ... [<channel #>]'       , 'Show common users between a list of channel(s)'),
         ('channels'   , '<user1> [<user2>] ... [<user #>] [--type=type]'    , 'Show common channels between a list of user(s) (nicks, idents, or hosts, including mixed)'),
-        ('seen'       , '<user> [<#channel>] [--type=type]'                 , 'Display last time user was seen speaking'),
+        ('seen'       , '<user> [<#channel>] [--type=type]'                 , 'Display last time user was seen doing something.'),
         ('geo'        , '<user> [--type=type]'                              , 'Geolocates user (nick, ident, host, IP, or domain)'),
         ('who'        , '<scope>'                                           , 'Update userdata on all users in the scope (#channel, network, or all)'),
         ('process'    , '<scope>'                                           , 'Add all current users in the scope (#channel, network, or all) to the database'),
@@ -262,7 +262,7 @@ class aka(znc.Module):
             gecos = self.GetNetwork().GetRealName()
             account = '0'
             for channel in self.GetNetwork().GetChans():
-                self.process_chan_join(self.GetNetwork().GetName(), nick, ident, host, channel.GetName(), 'join', account, gecos)
+                self.process_join(self.GetNetwork().GetName(), nick, ident, host, channel.GetName(), 'join', account, gecos)
 
     def OnMode(self, op, channel, mode, arg, added, nochange):
         channel = str(channel).replace("'","''")
