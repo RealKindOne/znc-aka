@@ -600,15 +600,11 @@ class aka(znc.Module):
 
     def cmd_purge(self, lastseen):
         if self.nv['ENABLE_PURGE'] == "TRUE":
-            user_query = self.generate_user_query(type, lastseen)
-            if type:
-                self.cur.execute("DELETE FROM USERS WHERE network = '{0}' AND lastseen <= unixepoch('now', '-{1} days');".format(self.GetNetwork().GetName().lower(), lastseen, re.sub(r'([\[\]])', '[\\1]', user_query)))
-                data = self.cur.fetchone()
-            try:
-                #self.PutModule("{} users at {}.".format(data[0], datetime.datetime.fromtimestamp(int(data[1])).strftime('%Y-%m-%d %H:%M:%S')))
-                self.PutModule("{}".format(data[0]))
-            except:
-                self.PutModule("")
+            self.cur.execute("SELECT COUNT(*) FROM USERS WHERE network = '{0}' AND lastseen <= unixepoch('now', '-{1} days');".format(self.GetNetwork().GetName().lower(), lastseen))
+            count = self.cur.fetchone()
+            self.cur.execute("DELETE FROM USERS WHERE network = '{0}' AND lastseen <= unixepoch('now', '-{1} days');".format(self.GetNetwork().GetName().lower(), lastseen))
+            self.conn.commit()
+            self.PutModule("Purge of {} nick(s) on {} network complete.".format(count[0], self.GetNetwork().GetName().lower()))
         else:
             self.PutModule("ENABLE_PURGE IS CURRENTLY DISABLED")
 
