@@ -437,28 +437,61 @@ class aka(znc.Module):
     def cmd_history(self, type, user, deep):
         user_query = self.generate_user_query(type, user)
         self.PutModule("Looking up \x02history\x02 for \x02{}\x02, please be patient...".format(user.lower()))
-        self.cur.execute("SELECT DISTINCT nick, host FROM users WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
-        data = self.cur.fetchall()
-        nicks = set(); idents = set(); hosts = set();
-        if len(data) > 0:
-            for row in data:
-                nicks.add("nick = '" + row[0] + "' OR"); hosts.add("host = '" + row[1] + "' OR");
-            self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{}' AND ({} {})".format(self.GetNetwork().GetName().lower(), ' '.join(nicks), ' '.join(hosts)[:-3]))
+        if type:
+            thing = type
+            self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
             data = self.cur.fetchall()
-            nicks.clear(); hosts.clear()
-            for row in data:
-                if deep:
-                    nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
-                    self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{0}' AND (nick GLOB '{1}' OR ident GLOB '{2}' OR host GLOB '{3}');".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', row[0]), re.sub(r'([\[\]])', '[\\1]', row[1]), re.sub(r'([\[\]])', '[\\1]', row[2])))
-                    data_inner = self.cur.fetchall()
-                    for row_inner in data_inner:
-                        nicks.add(row_inner[0]); idents.add(row_inner[1]); hosts.add(row_inner[2]);
-                else:
-                    nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
-            self.display_results(nicks, idents, hosts)
-            self.PutModule("History for {} \x02complete\x02.".format(user.lower()))
+            nicks = set(); idents = set(); hosts = set();
+            if len(data) > 0:
+                for row in data:
+                    if thing == "nick":
+                        nicks.add("nick = '" + row[0] + "'")
+                        self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{}' AND ({})".format(self.GetNetwork().GetName().lower(), ' '.join(nicks)))
+                    if thing == "ident":
+                        idents.add("ident = '" + row[1] + "'")
+                        self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{}' AND ({})".format(self.GetNetwork().GetName().lower(), ' '.join(idents)))
+                    if thing == "host":
+                        hosts.add("host = '" + row[2] + "'")
+                        self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{}' AND ({})".format(self.GetNetwork().GetName().lower(), ' '.join(hosts)))
+                data = self.cur.fetchall()
+                nicks.clear(); idents.clear(); hosts.clear()
+                for row in data:
+                    if deep:
+                        nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
+                        self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{0}' AND (nick GLOB '{1}' OR ident GLOB '{2}' OR host GLOB '{3}');".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', row[0]), re.sub(r'([\[\]])', '[\\1]', row[1]), re.sub(r'([\[\]])', '[\\1]', row[2])))
+                        data_inner = self.cur.fetchall()
+                        for row_inner in data_inner:
+                            nicks.add(row_inner[0]); idents.add(row_inner[1]); hosts.add(row_inner[2]);
+                    else:
+                        nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
+                self.display_results(nicks, idents, hosts)
+                self.PutModule("History for {} \x02complete\x02.".format(user.lower()))
+            else:
+                self.PutModule("No history found for \x02{}\x02".format(user.lower()))
         else:
-            self.PutModule("No history found for \x02{}\x02".format(user.lower()))
+
+            self.cur.execute("SELECT DISTINCT nick, host FROM users WHERE network = '{0}' AND ({1});".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', user_query)))
+            data = self.cur.fetchall()
+            nicks = set(); idents = set(); hosts = set();
+            if len(data) > 0:
+                for row in data:
+                    nicks.add("nick = '" + row[0] + "' OR"); hosts.add("host = '" + row[1] + "' OR");
+                self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{}' AND ({} {})".format(self.GetNetwork().GetName().lower(), ' '.join(nicks), ' '.join(hosts)[:-3]))
+                data = self.cur.fetchall()
+                nicks.clear(); hosts.clear()
+                for row in data:
+                    if deep:
+                        nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
+                        self.cur.execute("SELECT DISTINCT nick, ident, host FROM users WHERE network = '{0}' AND (nick GLOB '{1}' OR ident GLOB '{2}' OR host GLOB '{3}');".format(self.GetNetwork().GetName().lower(), re.sub(r'([\[\]])', '[\\1]', row[0]), re.sub(r'([\[\]])', '[\\1]', row[1]), re.sub(r'([\[\]])', '[\\1]', row[2])))
+                        data_inner = self.cur.fetchall()
+                        for row_inner in data_inner:
+                            nicks.add(row_inner[0]); idents.add(row_inner[1]); hosts.add(row_inner[2]);
+                    else:
+                        nicks.add(row[0]); idents.add(row[1]); hosts.add(row[2]);
+                self.display_results(nicks, idents, hosts)
+                self.PutModule("History for {} \x02complete\x02.".format(user.lower()))
+            else:
+                self.PutModule("No history found for \x02{}\x02".format(user.lower()))
 
     def display_results(self, nicks, idents, hosts):
         nicks = sorted(list(nicks)); idents = sorted(list(idents)); hosts = sorted(list(hosts));
