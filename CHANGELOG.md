@@ -10,7 +10,7 @@
 ### Version 3.1.0
 
   * Added `OnKickMessage` for recording kicks.
-  * Added `RECORD_WHOIS`, `RECORD_WHOIS`, and `WHO_ON_JOIN`settings.
+  * Added `RECORD_WHOIS`, `RECORD_WHOWAS`, and `WHO_ON_JOIN`settings.
   * Added `purge` command for deleting old data.
   * Added `VACUUM_ON_LOAD` command for vacuuming the database.
   * Added `kicks` column for the numer of times the person has been kicked.
