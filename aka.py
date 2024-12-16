@@ -782,6 +782,7 @@ class aka(znc.Module):
         self.cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, network TEXT, nick TEXT, ident TEXT, host TEXT, channel TEXT, event TEXT, message TEXT, firstseen INTEGER, lastseen INTEGER, texts INTEGER, joins INTEGER, kicks INTEGER, parts INTEGER, quits INTEGER, account TEXT, gecos TEXT, UNIQUE (network, nick, ident, host, channel));")
         # Note: The 'added' column is either going to be '0' or '1'. Just use TEXT so the number gets '' around them. Without the '' the offenses command thinks all entries are banned.
         self.cur.execute("CREATE TABLE IF NOT EXISTS moderated (network TEXT, op_nick TEXT, op_ident TEXT, op_host TEXT, channel TEXT, action TEXT, message TEXT, offender_nick TEXT, offender_ident TEXT, offender_host TEXT, added TEXT, time);")
+        self.conn.commit()
         # Upgrading from known 2.0.x
         # This is updated each time a new column is added.
         self.cur.execute("PRAGMA table_info(users);")
