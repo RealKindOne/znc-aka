@@ -168,6 +168,14 @@ The `account` and `gecos` columns are overwritten with the most recent one that 
 Do NOT make a copy of the database while the module is loaded. You can easily get a corrupted copy if there is channel/query activity.
 
 
+## Known Issues
+
+You will get NULL `ident` and `host` entries for the kicked nick in the `OnKickMessage` if the uses does not exist in the database. The only way to 'fix' this is to /who #channel on each channel you join.
+
+Do not do `/whois` or `/whowas` command at the same time on multiple networks. The module uses `global` variables, this causes cross-contamination.
+
+
+
 ## Contact
 
 Issues/bugs should be submitted on the <a href="https://github.com/RealKindOne/znc-aka/issues">GitHub issues page</a>.
