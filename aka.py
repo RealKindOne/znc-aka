@@ -28,8 +28,8 @@
 # This module will AUTOMATICALLY update your database to the new format.
 # Read the README.md file before upgrading.
 
-version = '3.2.0'
-updated = "Dec 30, 2023"
+version = '3.2.1'
+updated = "Dec 25, 2024"
 
 import znc
 import os
@@ -170,6 +170,9 @@ class aka(znc.Module):
         if self.nv['WHO_ON_JOIN'] == "TRUE":
             self.PutIRC("WHO %s" % msg.GetTarget())
 
+
+
+    # KNOWN ISSUE: Do not do `/whois` or `/whowas` command at the same time on multiple networks. The module uses `global` variables, this causes cross-contamination.
     def OnNumericMessage(self, msg):
 
         #                      0      1        2      3       4  5
