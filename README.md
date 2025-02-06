@@ -24,7 +24,7 @@ Read the CHANGELOG.md file for a full list of new features.
  * <a href="https://www.python.org">Python 3</a>
  * <a href="http://wiki.znc.in/Modpython">modpython</a>
  * <a href="http://docs.python-requests.org/en/latest/">python3-requests</a>
- * <a href="https://www.sqlite.org">sqlite3</a> 3.24.0 or newer for UPSERT.
+ * <a href="https://www.sqlite.org">sqlite3</a> 3.24.0 or newer for `UPSERT`.
 
 ## Installation
 To install aka, place aka.py in your ZNC modules folder
@@ -174,7 +174,7 @@ You will get NULL `ident` and `host` entries for the kicked nick in the `OnKickM
 
 Do not do `/whois` or `/whowas` command at the same time on multiple networks. The module uses `global` variables, this causes cross-contamination.
 
-
+Using `chghost` will not trigger the `OnQuitMessage` / `OnJoinMessage` event message.
 
 ## Contact
 
