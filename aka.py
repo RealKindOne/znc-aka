@@ -28,6 +28,15 @@
 # This module will AUTOMATICALLY update your database to the new format.
 # Read the README.md file before upgrading.
 
+# VERY ANNOYING ISSUE:
+# NO CHGHOST SUPPORT
+# This module does not log ip/host/cloak/spoof changes for CHGHOST events.
+# The JOIN event or any other event BEFORE the CHGHOST will be the last logged event for the ip/host.
+# All events (except the CHGHOST) AFTER the CHGHOST will be logged with the NEW cloak/spoof.
+# The only current way around this is to send: `/msg *send_raw server <username> <network> cap req -chghost`
+# each time your znc reconnects to the network and to disable it client side.
+
+
 version = '3.2.1'
 updated = "Dec 25, 2024"
 
